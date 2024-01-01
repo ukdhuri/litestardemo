@@ -1,0 +1,12 @@
+sqlmodel
+uvicorn
+aiosqlite
+aioodbc
+pandas
+loguru
+hydra-core
+jinja2
+litestar
+uvicorn
+pymysql
+pyodbc

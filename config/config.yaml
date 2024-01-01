@@ -1,0 +1,10 @@
+logpath: '/home/deck/devlopment/demo/logs'
+
+defaults:
+  - _self_
+  - db@remote: heavy
+  - env@remote: dev
+  - db@local: light
+  - env@local: dev
+  - db_env@remote: "${db@remote}_${env@remote}"
+  - db_env@local: "${db@local}_${env@local}"

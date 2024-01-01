@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>{{ title }}</title>
+    <link href="https://cdn.jsdelivr.net/npm/daisyui@4.4.24/dist/full.min.css" rel="stylesheet" type="text/css" />
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/htmx.org@1.9.10" integrity="sha384-D1Kt99CQMDuVetoL1lrYwg5t+9QdHe7NLX/SoJYkXDFfX37iInKRy5xLSi8nO7UC" crossorigin="anonymous"></script>
+    <script src="https://unpkg.com/hyperscript.org@0.9.12"></script>
+
+    {% block header %}
+    {% endblock %}
+    {% block style %}
+    <style>
+.indicator-style {
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    margin-left: -50px;
+    margin-top: -50px;
+}
+    .my-indicator{
+        display:none;
+        transition: 500ms ease-in;
+    }
+    .htmx-request .my-indicator{
+        display:inline;
+        transition: 500ms ease-in;
+    }
+    .htmx-request.my-indicator{
+        display:inline;
+        transition: 500ms ease-in;
+    }
+    </style>
+    {% endblock %}
+</head>
+<body  data-theme="forest">
+{% include 'fragments/drawer-up.html' %}
+{% block content %}
+{% endblock %}
+{% include 'fragments/drawer-down.html' %}
+{% block javascript %}
+{% endblock %} 
+</body>
+</html>
