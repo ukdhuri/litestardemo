@@ -268,17 +268,19 @@ class FactoryController(Controller):
 
     @get(["/addrandomorder/{num:int}"], sync_to_thread=False) 
     async def addrandomorder(self,request: Request,transaction_remote: AsyncSession,num: int) ->  list[remote.Order]:
-        users = await get_users_fn(transaction_remote,page_size=-1)
+        users = await get_users_fn(transaction_remote,page_size=-1,scalar=True)
         batchlist=[]
         batchlist.append(await get_batch_fn(transaction_remote, status="inprogress"))
         orderlist = []
-        products = await get_product_fn(transaction_remote,page_size=-1)
         #for i in range(random.randint(6, 10)):
         for i in range(num):   
             randomebatch = random.choice(batchlist)
             start_time= randomebatch.start_time + timedelta(hours=random.randint(1, 6))
             end_time = start_time + timedelta(seconds=random.randint(50, 250))
-            order = remote.Order(user=random.choice(users),batch=randomebatch,start_time=start_time,end_time=end_time)
+            user=random.choice(users)
+            #user=remote.OrderResult(**user._asdict())
+            batch=randomebatch
+            order = remote.Order(user=user,batch=batch,start_time=start_time,end_time=end_time,orderitems=[])
             # order_item_list = []
             # for j in range(random.randint(1, 6)):
             #     qty = random.randint(1,6)

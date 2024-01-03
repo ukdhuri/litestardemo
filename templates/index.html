@@ -18,30 +18,29 @@
   <div id="spinnertop" class="my-indicator border-red-300">
     <div class="flex justify-center border-5"><span class="loading loading-ring loading-lg"></span></div>
   </div>
+    <table class="table table-xl table-zebra table-pin-rows" id="search-results-tbl" >
+      <thead>
+        <tr>
+          <th></th>
+          <th>Name</th>
+          <th>Email</th>
+          <th>PhoneNumber</th>
+          <th>Address</th>
+          <th>Date Of Birth</th>
+        </tr>
+      </thead>
 
-
-  <table id="search-results-tbl" class="table table-xs">
-    <thead>
-      <tr>
-        <th></th>
-        <th>Name</th>
-        <th>Email</th>
-        <th>PhoneNumber</th>
-        <th>Address</th>
-        <th>Date Of Birth</th>
-      </tr>
-    </thead>
     <tbody id="search-results-tbd">
       {% include 'fragments/tablerow.html' %}
     </tbody>
     <tfoot>
       <tr>
-        <th></th>
-        <th>Name</th>
-        <th>Email</th>
-        <th>PhoneNumber</th>
-        <th>Address</th>
-        <th>Date Of Birth</th>
+      <th></th>
+      <th>Name</th>
+      <th>Email</th>
+      <th>PhoneNumber</th>
+      <th>Address</th>
+      <th>Date Of Birth</th>
       </tr>
     </tfoot>
   </table>

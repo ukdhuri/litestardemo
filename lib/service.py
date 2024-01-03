@@ -9,8 +9,17 @@ from datetime import date
 import copy
 from typing import TypeVar
 
-async def get_users_fn(transaction_remote: AsyncSession, search_query: str = "", page_number: int = 1, page_size: int = 33,scalar=False)-> list[remote.User]:
-    query=select(remote.User)
+
+async def get_users_fn(
+    transaction_remote: AsyncSession,
+    search_query: str = "",
+    page_number: int = 1,
+    page_size: int = 33,
+    scalar=False,
+    order_by_column: str = "id",
+    order_direction: str = "asc",
+) -> list[remote.User]:
+    query = select(remote.User)
     if search_query:
         query = query.filter(
             or_(
@@ -21,11 +30,22 @@ async def get_users_fn(transaction_remote: AsyncSession, search_query: str = "",
             )
         )
     if page_size == -1:
-        query = query.order_by(remote.User.id.asc())
-        print(query)
+        query = query.order_by(
+            getattr(remote.User, order_by_column).asc()
+            if order_direction == "asc"
+            else getattr(remote.User, order_by_column).desc()
+        )
     else:
-        query = query.order_by(remote.User.id.asc()).offset((page_number - 1) * page_size).limit(page_size)
-    
+        query = (
+            query.order_by(
+                getattr(remote.User, order_by_column).asc()
+                if order_direction == "asc"
+                else getattr(remote.User, order_by_column).desc()
+            )
+            .offset((page_number - 1) * page_size)
+            .limit(page_size)
+        )
+
     result = await transaction_remote.execute(query)
     if scalar:
         return result.scalars().all()
@@ -33,73 +53,97 @@ async def get_users_fn(transaction_remote: AsyncSession, search_query: str = "",
         return result.all()
 
 
-async def get_recent_orders(transaction_remote: AsyncSession, search_query: str = "", page_number: int = 1, page_size: int = 33)-> list[remote.OrderResult]:
+async def get_recent_orders(
+    transaction_remote: AsyncSession,
+    search_query: str = "",
+    page_number: int = 1,
+    page_size: int = 33,
+    scalar=False,
+    order_by_column: str = "id",
+    order_direction: str = "desc",
+) -> list[remote.OrderResult]:
     batch = await get_batch_fn(transaction_remote, status="inprogress")
-    query = select(
-        remote.Order.id,
-        remote.Order.start_time,
-        remote.Order.end_time,
-        remote.Batch.batch_date,
-        remote.User.name
-    ).join(
-        remote.Batch,
-        remote.Order.batch_id == remote.Batch.id
-    ).join(
-        remote.User,
-        remote.Order.user_id == remote.User.id
-    ).where(
-        remote.Order.batch_id == batch.id
-    ).where(
-        or_(
-            remote.User.name.contains(search_query),
-            remote.User.address.contains(search_query)
+    ##different column scalr for html will not work
+    query = (
+        select(
+            remote.Order.id,
+            remote.Order.start_time,
+            remote.Order.end_time,
+            remote.Batch.batch_date,
+            remote.User.name
         )
-    ).order_by(
-        remote.Order.id.desc()
+        .join(remote.Batch, remote.Order.batch_id == remote.Batch.id)
+        .join(remote.User, remote.Order.user_id == remote.User.id)
+        .where(remote.Order.batch_id == batch.id)
+        .where(
+            or_(
+                remote.User.name.contains(search_query),
+                remote.User.address.contains(search_query),
+            )
+        )
     )
     if page_size == -1:
-        query = query.order_by(remote.User.id.asc())
-        print(query)
+        query = query.order_by(
+            getattr(remote.Order, order_by_column).asc()
+            if order_direction == "asc"
+            else getattr(remote.Order, order_by_column).desc()
+        )
     else:
-        query = query.order_by(remote.User.id.asc()).offset((page_number - 1) * page_size).limit(page_size)
-    print(query)
+        query = (
+            query.order_by(
+                getattr(remote.Order, order_by_column).asc()
+                if order_direction == "asc"
+                else getattr(remote.Order, order_by_column).desc()
+            )
+            .offset((page_number - 1) * page_size)
+            .limit(page_size)
+        )
     result = await transaction_remote.execute(query)
-    fl = result.all()
+    if scalar:
+        res = result.scalars().all()
+        return res
+    else:
+        res = result.all()
+        return res
+    #return [remote.OrderResult(**row._asdict()) for row in rows]
 
-    result = await transaction_remote.execute(query)
-    rows = result.all()
-    return [remote.OrderResult(**row._asdict()) for row in rows]
 
-
-async def last_order_id(transaction_remote: AsyncSession)-> int:
-    batch = await get_batch_fn(transaction_remote, status="inprogress")    
-    query = select(
-        remote.Order.id,
-        remote.Order.start_time,
-        remote.Order.end_time,
-        remote.Batch.batch_date,
-        remote.User.name,
-        remote.User.address
-    ).join(
-        remote.Batch,
-        remote.Order.batch_id == remote.Batch.id
-    ).where(
-        remote.Order.batch_id == batch.id if batch.id else remote.Batch.batch_date == batch.batch_date
-    ).order_by(
-        remote.Order.id.desc()
+async def last_order_id(transaction_remote: AsyncSession) -> int:
+    batch = await get_batch_fn(transaction_remote, status="inprogress")
+    query = (
+        select(
+            remote.Order.id,
+            remote.Order.start_time,
+            remote.Order.end_time,
+            remote.Batch.batch_date,
+            remote.User.name,
+            remote.User.address,
+        )
+        .join(remote.Batch, remote.Order.batch_id == remote.Batch.id)
+        .where(
+            remote.Order.batch_id == batch.id
+            if batch.id
+            else remote.Batch.batch_date == batch.batch_date
+        )
+        .order_by(remote.Order.id.desc())
     )
     query = query.order_by(remote.User.id.asc()).limit(1)
     result = await transaction_remote.execute(query)
     orderid = result.scalar().first()
     return orderid
-    
 
-async def get_batch_fn(transaction_remote: AsyncSession, batch_id: Optional[int] = None, batch_date: Optional[date] = None, status: Optional[str] = None)-> remote.Batch:
+
+async def get_batch_fn(
+    transaction_remote: AsyncSession,
+    batch_id: Optional[int] = None,
+    batch_date: Optional[date] = None,
+    status: Optional[str] = None,
+) -> remote.Batch:
     query = select(remote.Batch).where(
         and_(
             remote.Batch.id == batch_id if batch_id else True,
             remote.Batch.batch_date == batch_date if batch_date else True,
-            remote.Batch.status == status if status else True
+            remote.Batch.status == status if status else True,
         )
     )
     print(query)
@@ -107,8 +151,13 @@ async def get_batch_fn(transaction_remote: AsyncSession, batch_id: Optional[int]
     return result.one()[0]
 
 
-async def get_product_fn(transaction_remote: AsyncSession, search_query: str = "", page_number: int = 1, page_size: int = 12)-> list[remote.Product]:
-    query=select(remote.Product)
+async def get_product_fn(
+    transaction_remote: AsyncSession,
+    search_query: str = "",
+    page_number: int = 1,
+    page_size: int = 12,
+) -> list[remote.Product]:
+    query = select(remote.Product)
     if search_query:
         query = query.filter(
             or_(
@@ -121,23 +170,37 @@ async def get_product_fn(transaction_remote: AsyncSession, search_query: str = "
         query = query.order_by(remote.Product.id.asc())
         print(query)
     else:
-        query = query.order_by(remote.Product.id.asc()).offset((page_number - 1) * page_size).limit(page_size)
-    
+        query = (
+            query.order_by(remote.Product.id.asc())
+            .offset((page_number - 1) * page_size)
+            .limit(page_size)
+        )
+
     result = await transaction_remote.execute(query)
     return result.all()
 
-async def get_order_fn(transaction_remote: AsyncSession, batch_id: Optional[int] = None, page_number: int = 1, page_size: int = 12)-> list[remote.Order]:
-    query=select(remote.Order).where(
+
+async def get_order_fn(
+    transaction_remote: AsyncSession,
+    batch_id: Optional[int] = None,
+    page_number: int = 1,
+    page_size: int = 12,
+) -> list[remote.Order]:
+    query = select(remote.Order).where(
         and_(
             remote.Order.id == batch_id if batch_id else True,
         )
-    )   
+    )
     if page_size == -1:
         query = query.order_by(remote.Order.id.asc())
         print(query)
     else:
-        query = query.order_by(remote.Order.id.asc()).offset((page_number - 1) * page_size).limit(page_size)
-    
+        query = (
+            query.order_by(remote.Order.id.asc())
+            .offset((page_number - 1) * page_size)
+            .limit(page_size)
+        )
+
     result = await transaction_remote.execute(query)
     return result.all()
 
@@ -147,7 +210,8 @@ async def upsert_record(transaction_remote: AsyncSession, record: T) -> T:
     await transaction_remote.commit()
     return record
 
-async def upsert_records(transaction_remote: AsyncSession, records: list[T]) ->list[T]:
+
+async def upsert_records(transaction_remote: AsyncSession, records: list[T]) -> list[T]:
     transaction_remote.add_all(records)
     await transaction_remote.commit()
     return records
