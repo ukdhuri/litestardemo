@@ -6,4 +6,8 @@ package-lock.json
 *.pyc
 *.log
 *.db
+*.zip
+response-cache/*
+tempdatafs/*
+favicon.ico
 /aap1.py

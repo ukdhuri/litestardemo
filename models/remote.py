@@ -4,7 +4,7 @@ from datetime import date,datetime,timedelta
 from pydantic import computed_field
 from sqlalchemy import DECIMAL, Column, Index, PrimaryKeyConstraint, String, UniqueConstraint
 from sqlmodel import Field, SQLModel, Relationship
-
+from sqlalchemy.exc import IntegrityError,InvalidRequestError
 
 # class MytableX(SQLModel, table=True):
 #     __table_args__ = (UniqueConstraint("kocha", "column2", name="uc1t")), (UniqueConstraint("id3", "column3", name="uc3t")) , (Index('hhh_id4_clm5', 'id4', 'bbbb')),
@@ -20,6 +20,13 @@ from sqlmodel import Field, SQLModel, Relationship
 #     money: Decimal = Field(default=0, max_digits=5, decimal_places=3)
 #     price_column: Decimal = Field(sa_column=Column(DECIMAL(precision=10, scale=2)))
 #     age: Optional[int] = Field(default=None, index=True)
+
+class OrderResult(SQLModel, table=False):
+    id: Optional[int]
+    start_time: datetime
+    end_time: datetime
+    name: Optional[str]
+    batch_date: Optional[date]
 
 class User(SQLModel, table=True):
     __table_args__ = (UniqueConstraint("email", name="email_uc")),
@@ -51,18 +58,22 @@ class Order(SQLModel, table=True):
     user: User = Relationship(back_populates="orders")
     batch: Batch = Relationship(back_populates="orders")
     start_time: Optional[datetime] = Field(default=datetime.now())
-    #end_time: Optional[datetime] = Field(default=None)
+    end_time: Optional[datetime] = Field(default=None)
     @computed_field
     @property
-    def total_price(self) -> Decimal:
-        if self.orderitems:
-            return sum(item.price for item in self.order_items)
+    def total_price(self) -> Optional[Decimal]:
+        try :
+            if self.orderitems:
+                return sum(item.price for item in self.order_items)
+        except InvalidRequestError as e:
+            return 0
+        
 
-    @computed_field
-    @property
-    def end_time(self) -> Optional[datetime]:
-        if self.start_time:
-            return self.start_time + timedelta(seconds=random.randint(20, 120))
+    # @computed_field
+    # @property
+    # def end_time(self) -> Optional[datetime]:
+    #     if self.start_time:
+    #         return self.start_time + timedelta(seconds=random.randint(20, 120))
 
 
 class ProductCategoryLink(SQLModel, table=True):
@@ -93,14 +104,15 @@ class OrderItem(SQLModel, table=True):
     id: Optional[int] = Field(default=None, primary_key=True)
     order_id: int = Field(foreign_key="order.id")
     product_id: int = Field(foreign_key="product.id")
+    #order_id: Optional[int] = Field()
+    #product_id: Optional[int] = Field()
     quantity: int = Field(default=1)
     #price: Decimal = Field(default=0, max_digits=15, decimal_places=2)
     order: Order = Relationship(back_populates="orderitems")
     product: Product = Relationship(back_populates="orderitem")
-
     @computed_field
     @property
-    def price(self) -> int:
+    def price(self) -> Optional[Decimal]:
         return self.product.price * self.quantity
 
 

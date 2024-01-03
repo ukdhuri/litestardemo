@@ -1,6 +1,7 @@
 from contextlib import asynccontextmanager
 from typing import Any, Optional
 from collections.abc import AsyncGenerator
+from loguru import logger
 from sqlmodel import SQLModel, Field
 from sqlalchemy import select
 from models import local, remote
@@ -20,12 +21,15 @@ from lib.util import cfg
 async def db_remote(app: Litestar) -> AsyncGenerator[None, None]:
     engine_remote = getattr(app.state, "engine_remote", None)
     if engine_remote is None:
-        engine_remote = create_async_engine(cfg.remote.vendor.connection_string,echo=True)
+        constr = cfg.remote.vendor.connection_string.replace("REPLACEME", "xxxx")
+        app.state.remote_con_str = constr
+        engine_remote = create_async_engine(constr,echo=True)
         app.state.engine_remote = engine_remote
+        app.state['remote_con_str'] = constr
 
     async with engine_remote.begin() as conn:
         #await conn.run_sync(SQLModel.metadata.create_all)
-        print('engine_remote created')
+        logger.info('engine_remote created')
     try:
         yield
     finally:
@@ -39,7 +43,8 @@ async def db_local(app: Litestar) -> AsyncGenerator[None, None]:
         engline_local = create_async_engine(cfg.local.vendor.connection_string)
         app.state.engline_local = engline_local
     async with engline_local.begin() as conn:
-        await conn.run_sync(SQLModel.metadata.create_all)
+        #await conn.run_sync(SQLModel.metadata.create_all)
+        logger.info('engine_remote created')
     try:
         yield
     finally:

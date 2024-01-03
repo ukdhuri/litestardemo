@@ -130,7 +130,12 @@ class ProductCategoryLinkFactory(ModelFactory[remote.ProductCategoryLink]):
 
 
 
-def produce_factory_object(engine : Engine):
+
+
+
+
+
+def produce_factory_object(engine : Engine,st: date , ed: date):
     global q
     q=reset_queue(q)
     uf=UserFactory()

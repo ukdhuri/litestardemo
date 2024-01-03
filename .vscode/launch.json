@@ -11,7 +11,12 @@
             "module": "uvicorn",
             "justMyCode": true,
             "args": [
-                "app:app","--port","9999","--reload","--log-level","debug"
+                "app:app",
+                "--port",
+                "9999",
+                "--reload",
+                "--log-level",
+                "debug"
             ]
         },
         {
@@ -22,5 +27,11 @@
             "console": "integratedTerminal",
             "justMyCode": true
         },
+        {
+            "type": "chrome",
+            "name": "http://127.0.0.1:3000/templates/index2.html",
+            "request": "launch",
+            "url": "http://127.0.0.1:3000/templates/index2.html"
+        }
     ]
 }

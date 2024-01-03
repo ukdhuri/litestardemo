@@ -1,0 +1,53 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="flex-auto mb-2" id="maincontent">
+  <div class="flex flex-row-reverse p-2">
+    <input class="input input-bordered input-primary input-md max-w-xs form-control" type="search" name="search_query" id="search" value="{{ search_text }}"
+       placeholder="Begin Typing To Search Users..." 
+       hx-get="/home" 
+       hx-trigger="input changed delay:500ms, search" 
+       hx-target="#search-results-tbd" 
+       hx-indicator="#spinnertop">
+    <!-- <input type="search" name="search_query" id="search" placeholder="Type here for search"
+      class="input input-bordered input-primary input-md max-w-xs form-control"  hx-post="/search" 
+      hx-trigger="input changed delay:500ms, search" hx-target="#search-results" hx-ext='json-enc' hx-indicator="#spinner" 
+     /> -->
+     <!-- _="on input
+     show <tbody>tr/> in #search-results-tbl
+    when its textContent.toLowerCase() contains my value.toLowerCase()
+    "  -->
+  </div>
+  <div id="spinnertop" class="my-indicator border-red-300"><div class="flex justify-center border-5"><span class="loading loading-ring loading-lg"></span></div></div>
+<table id="search-results-tbl" class="table table-xs" hx-get="/news" hx-trigger="every 5s">
+  <thead>
+    <tr>
+      <th></th> 
+      <th>Name</th> 
+      <th>Email</th> 
+      <th>PhoneNumber</th> 
+      <th>Address</th> 
+      <th>Date Of Birth</th> 
+    </tr>
+  </thead>
+  <tbody id="search-results-tbd">
+  {% include 'fragments/tablerow.html' %}
+  </tbody> 
+  <tfoot>
+    <tr>
+      <th></th> 
+      <th>Name</th> 
+      <th>Email</th> 
+      <th>PhoneNumber</th> 
+      <th>Address</th> 
+      <th>Date Of Birth</th> 
+    </tr>
+  </tfoot>
+</table>
+<div id="spinner" class="htmx-indicator flex justify-center"><span class="loading loading-ring loading-lg"></span></div>
+{% endblock %}
+
+
+
+
+
+

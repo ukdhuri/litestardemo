@@ -1,7 +1,7 @@
 
     {% for user in userlist %}
     {% if loop.last and shouldusepagination %}
-    <tr  hx-get="/home/?page_number={{ next_page_number }}&page_size={{ page_size }}"  hx-trigger="revealed"  hx-swap="afterend" hx-target="this" hx-indicator="#spinner">
+    <tr  hx-get="/home/?page_number={{ next_page_number }}&page_size={{ page_size }}"  hx-trigger="intersect once threshold:0.9"  hx-swap="afterend" hx-target="this" hx-indicator="#spinner">
         {% else %}
     <tr>
         {% endif %}

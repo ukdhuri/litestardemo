@@ -15,12 +15,12 @@ from models import remote
 from sqlalchemy.exc import IntegrityError, NoResultFound
 from litestar.exceptions import ClientException, NotFoundException,InternalServerException
 from litestar.status_codes import HTTP_409_CONFLICT
-
+from typing import TypeVar
 
 initialize_config_dir(version_base=None, config_dir=f"{os.getcwd()}/config", job_name="demo")
 cfg = compose(config_name="config")
 lstate=State({"appcfg": cfg})
-
+T = TypeVar('T')
 
 def decrpyt_password(cybeark_string):
     p = subprocess.Popen(cybeark_string, shell=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)

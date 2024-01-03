@@ -10,3 +10,7 @@ litestar
 uvicorn
 pymysql
 pyodbc
+redis
+litestar-saq
+schedule
+apscheduler

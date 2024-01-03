@@ -2,10 +2,10 @@ driverprotocol: "mssql+aioodbc"
 #driverprotocol: "mssql+pyodbc"
 min_pool_size: 20
 max_pool_size: 50
-driverversion: 17
+driverversion: 18
 instancesep: '\'
 #connection_string: "${.driverprotocol}://${..dbuser}:REPLACEME@${..dbserver}${.instancesep}${..dbinstance}/${..basedatabase}"
 #,${..dbport}
-connection_string: "${.driverprotocol}://${..dbuser}:REPLACEME@${..dbserver}${.instancesep}${..dbinstance}/${..basedatabase}?driver=ODBC+Driver+${.driverversion}+for+SQL+Server&Encrypt=no&ssl_verify_cert=false"
+connection_string: "${.driverprotocol}://${..dbuser}:REPLACEME@${..dbserver}${.instancesep}${..dbinstance}/${..basedatabase}?driver=ODBC+Driver+${.driverversion}+for+SQL+Server&Encrypt=no&ssl_verify_cert=false&autocommit=true"
 #,${..dbport}
 #?driver=FreeTDS&Encrypt=no&ssl_verify_cert=false

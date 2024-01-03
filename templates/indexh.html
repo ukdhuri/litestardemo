@@ -18,6 +18,7 @@
 
 <body>
 
+
   <div class="drawer">
     <input id="my-drawer-3" type="checkbox" class="drawer-toggle" />
     <div class="drawer-content border-1 border-red-300 p-10 flex flex-col min-h-screen">
@@ -41,24 +42,18 @@
         </div>
       </div>
       <!-- Page content here hx-include="[name='email'], [name='number']"-->
-      <div class="toast toast-top toast-end" _="">
-        <div class="alert alert-warning">
-          <span>xxxxaefawefawfeqawfawfawfawefawfaw</span>
-        </div>
-    </div>
+
+
       <div class="flex-auto mb-2">
         <div class="flex flex-row-reverse p-2">
           <input type="search" name="search" id="search" placeholder="Type here for search"
             class="input input-bordered input-primary input-md  max-w-xs form-control" hx-get="/search"
-            hx-trigger="input changed delay:500ms, search" hx-target="#search-results" hx-ext='json-enc' 
-            _="on input
+            hx-trigger="input changed delay:500ms, search" hx-target="#search-results" hx-ext='json-enc' _="on input
        show <tbody>tr/> in #example
       when its textContent.toLowerCase() contains my value.toLowerCase()
       " />
         </div>
-
-        <div class="overflow-x-auto">
-
+  
           <table class="table table-xs" id="example">
             <thead>
               <tr>
@@ -202,14 +197,10 @@
               </tr>
             </tfoot>
           </table>
-
-
           <div class="flex justify-center">
             <div class="htmx-indicator"><span class="loading loading-ring loading-lg"></span></div>
 
           </div>
-
-
         </div>
         <footer class="footer items-center p-4 bg-neutral text-neutral-content">
           <aside class="items-center grid-flow-col">
@@ -250,10 +241,5 @@
         </ul>
       </div>
     </div>
-
-
-
-
 </body>
-
 </html>
