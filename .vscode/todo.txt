@@ -1,0 +1,30 @@
+import pandas as pd
+import time
+from sqlalchemy import create_engine
+
+# Connect to the database
+engine = create_engine('postgresql://user:password@localhost:5432/mydatabase')
+
+# Load the table into a pandas dataframe
+df = pd.read_sql_table('mytable', engine)
+
+# Keep track of the number of rows in the dataframe
+num_rows = len(df)
+
+while True:
+    # Reload the table into the dataframe
+    df = pd.read_sql_table('mytable', engine)
+
+    # Check if the number of rows has changed
+    if len(df) != num_rows:
+        print("New rows added!")
+        num_rows = len(df)
+
+    # Check if any rows have been updated
+    updated_rows = df[df['status'] != 'old_status']
+    if not updated_rows.empty:
+        print("Rows updated:")
+        print(updated_rows)
+
+    # Wait for one minute before checking again
+    time.sleep(60)
