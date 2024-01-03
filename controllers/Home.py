@@ -135,6 +135,7 @@ class HomeController(Controller):
         search_query: Optional[str] = "",
         page_number: int = 1,
         page_size: int = 33,
+        poll : int = 3
     ) -> Template:
         lpush_url = "/liveorderlongpoll"
         if request.url.path != lpush_url:
@@ -168,10 +169,15 @@ class HomeController(Controller):
             "page_size": page_size,
             "shouldusepagination": True,
         }
-        if request.htmx:
+        if poll == 1:
             template = "fragments/tableroworder.html"
-        else:
+        elif poll == 3:
             template = "order.html"
+        else:
+            if request.htmx:
+                template = "fragments/tableroworder.html"
+            else:
+                template = "order.html"
         return HTMXTemplate(
                 template_name=template, context=context, push_url=lpush_url
             )

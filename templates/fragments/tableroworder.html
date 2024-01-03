@@ -1,7 +1,9 @@
 
     {% for order in itemlist %}
     {% if loop.last and shouldusepagination %}
-    <tr  hx-get="/liveorderlongpoll/?page_number={{ next_page_number }}&page_size={{ page_size }}"  hx-trigger="intersect once threshold:0.9"  hx-swap="afterend" hx-target="this" hx-indicator="#spinner">
+    <tr  hx-get="/liveorderlongpoll/?page_number={{ next_page_number }}&page_size={{ page_size }}&&poll=2"  hx-trigger="intersect once threshold:0.9"  hx-swap="afterend" hx-target="this" hx-indicator="#spinner">
+    {% elif loop.first %}
+    <tr id="order_first_row">
         {% else %}
     <tr>
         {% endif %}

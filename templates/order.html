@@ -4,7 +4,7 @@
   <div class="flex flex-row-reverse p-2">
     <input class="input input-bordered input-primary input-md max-w-xs form-control" type="search" name="search_query"
       id="search" value="{{ search_text }}" placeholder="Type here for search" 
-      _="on input
+      _="on input from me or htmx:afterSwap from #search-results-tbd
       show <tbody>tr/> in #search-results-tbl
      when its textContent.toLowerCase() contains my value.toLowerCase()
      "
@@ -33,7 +33,10 @@
         </tr>
       </thead>
 
-    <tbody id="search-results-tbd"  hx-get="/liveorderlongpoll" hx-trigger="every 6s">
+    <tbody id="search-results-tbd"  hx-get="/liveorderlongpoll?poll=1" hx-trigger="every 6s" _="on htmx:afterOnload
+      show <tbody>tr/> in #search-results-tbl 
+      when its textContent.toLowerCase() contains #xxxx value.toLowerCase()
+      ">
       {% include 'fragments/tableroworder.html' %}
     </tbody>
     <tfoot>
