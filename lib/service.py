@@ -1,5 +1,8 @@
 from typing import Optional
+from litestar import Request
 from loguru import logger
+import pandas as pd
+from sqlalchemy import text
 from sqlmodel import or_, select
 from lib.util import T
 from models import remote
@@ -8,6 +11,57 @@ from sqlmodel import select, and_
 from datetime import date
 import copy
 from typing import TypeVar
+import static.constants
+from litestar.response import Template
+
+def read_sql_query(con, stmt):
+    return pd.read_sql(stmt, con)
+
+async def get_df(stmt, engine):
+    data = pd.read_sql(stmt, engine)
+    return data
+
+async def get_historical_result(
+    request: Request,
+    asyncsession: AsyncSession,
+    search_query: str = "",
+    page_number: int = 1,
+    page_size: int = 33,
+    cte_select_statment : str = "",
+    sql_column_sequnce : list[str] = [],
+    sql_order_sequnce : list[int] = [0],
+    sql_order_direction: list[str] = [1],
+    valid_search_columns = [],
+    scalar: bool = False,
+    dilect : str = 'tsql'
+
+    ):
+        context = {
+            'cte_select_statment':cte_select_statment,
+            'sql_column_sequnce':sql_column_sequnce,
+            'sql_order_sequnce':sql_order_sequnce,
+            'sql_order_direction':sql_order_direction,
+            'direction_dict': static.constants.direction,
+            'valid_search_columns': valid_search_columns,
+            'search_query': search_query,
+            'page_number': page_number,
+            'page_size': page_size,
+            'dilect' : dilect
+        }
+        sql_statement = Template(template_name="sql/history.txt",context=context).to_asgi_response(request.app,request).body.decode("utf-8")
+        sql_statement = str(sql_statement)
+        print(sql_statement)
+        result = await asyncsession.execute(text(str(sql_statement)))
+        
+        if scalar:
+            res =  result.scalars().all()
+        else:
+            res =  result.all()
+        return res
+        #return [remote.OrderResult(**row._asdict()) for row in rows]
+
+
+
 
 
 async def get_users_fn(
@@ -51,6 +105,7 @@ async def get_users_fn(
         return result.scalars().all()
     else:
         return result.all()
+    
 
 
 async def get_recent_orders(

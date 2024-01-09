@@ -1,8 +1,11 @@
+
 from typing import Optional, Union
+from httpx import post
 from litestar import Controller, Request, Response, get
+import pandas as pd
 from sqlmodel import or_, select
-from lib.service import get_recent_orders, get_users_fn, last_order_id
-from models import remote
+from lib.service import get_recent_orders, get_users_fn, last_order_id,get_historical_result
+from models import remote,History
 from sqlalchemy.ext.asyncio import AsyncSession
 from lib.util import get_todo_listX, get_all_users
 from litestar.contrib.htmx.request import HTMXRequest
@@ -12,8 +15,11 @@ from litestar.contrib.jinja import JinjaTemplateEngine
 from litestar.template.config import TemplateConfig
 import asyncio
 from datetime import datetime, timedelta
-
-
+from litestar.response import File
+from litestar import post
+from litestar import get
+from litestar.response import Template
+import static.constants
 class HomeController(Controller):
     path = "/"
 
@@ -96,6 +102,82 @@ class HomeController(Controller):
         page_size: int,
     ) -> list[remote.User]:
         return await get_users_fn(transaction_remote, page_number, page_size)
+    
+
+    @get(["/get_users3"], sync_to_thread=False)
+    async def get_users_post(
+        self,
+        request: Request,
+        transaction_remote: AsyncSession      
+    ) ->  Template:
+        user_page_squeunce =  History.UserHistory.user_page_squeunce()
+        sql_column_sequnce = History.UserHistory.sql_column_sequnce()
+        sql_order_sequnce = History.UserHistory.sql_order_sequnce()
+        sql_order_direction = History.UserHistory.sql_order_direction()
+        achemylist = await get_historical_result(request=request, asyncsession = transaction_remote, search_query='', page_number=1, page_size=-1, scalar=False, cte_select_statment=History.UserHistory.get_select_clause()
+                                  , sql_column_sequnce=sql_column_sequnce, sql_order_sequnce=sql_order_sequnce
+                                   , sql_order_direction=sql_order_direction, valid_search_columns=History.UserHistory.sql_valid_search_columns())
+        rsultlist = [History.UserHistory(**row._asdict()) for row in achemylist]
+        context = {
+            "title": "Home",
+            "result_list": rsultlist,
+            "shouldusepagination": False,
+            "user_page_squeunce": user_page_squeunce,
+            "sql_column_sequnce": sql_column_sequnce,
+            "sql_order_sequnce": sql_order_sequnce,
+            "sql_order_direction": sql_order_direction,
+            "clm_name_mapping" : static.constants.clm_name_mapping,
+            "rev_direction": static.constants.rev_direction,
+            "update_order_section"  : False
+        }
+        return HTMXTemplate(
+                template_name='history.html', context=context
+        )
+    
+    @post(["/get_users3"], sync_to_thread=False)
+    async def get_users3(
+        self,
+        request: Request,
+        transaction_remote: AsyncSession ,
+        data: History.SearchAndOrder
+        # order_list: list[Union[int, str]] ,
+        # search_query: Optional[str] = "" ,
+        # page_number: Optional[int] = 1,   
+        # page_size: Optional[int] = 100, 
+    ) ->  Template:
+        
+
+        print(data)
+        sql_column_sequnce = History.UserHistory.sql_column_sequnce()
+        user_page_squeunce =  History.UserHistory.user_page_squeunce()
+        valid_search_columns=History.UserHistory.sql_valid_search_columns()
+        if not data.order_list:
+            sql_order_sequnce = History.UserHistory.sql_order_sequnce()
+            sql_order_direction = History.UserHistory.sql_order_direction()
+
+
+
+        achemylist = await get_historical_result(request=request, asyncsession = transaction_remote, search_query=data.search_query, page_number=data.page_number, page_size=data.page_size, scalar=False, cte_select_statment=History.UserHistory.get_select_clause()
+                                  , sql_column_sequnce=sql_column_sequnce, sql_order_sequnce=data.order_sequnce
+                                   , sql_order_direction=data.order_direction, valid_search_columns=valid_search_columns)
+        rsultlist = [History.UserHistory(**row._asdict()) for row in achemylist]
+      
+        context = {
+            "title": "Home",
+            "result_list": rsultlist,
+            "shouldusepagination": False,
+            "user_page_squeunce": user_page_squeunce,
+            "sql_column_sequnce": sql_column_sequnce,
+            "sql_order_sequnce": data.order_sequnce,
+            "sql_order_direction": data.order_direction,
+            "clm_name_mapping" : static.constants.clm_name_mapping,
+            "rev_direction": static.constants.rev_direction,
+            "update_order_section"  : True
+        }
+        return HTMXTemplate(
+                template_name='fragments/table_and_rows.html', context=context
+        )   
+      
 
     @get(path="/preview")
     async def preview(self, request: HTMXRequest) -> Template:
@@ -115,7 +197,7 @@ class HomeController(Controller):
         # OR
         if request.htmx:
             print(request.htmx.current_url)
-        return HTMXTemplate(template_name="index2.html", context="")
+        return HTMXTemplate(template_name="preview2.html", context="")
 
     @get(["/get_users2"], sync_to_thread=False)
     async def get_users2(

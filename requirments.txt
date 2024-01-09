@@ -6,11 +6,12 @@ pandas
 loguru
 hydra-core
 jinja2
-litestar
-uvicorn
+litestar[standard]
 pymysql
 pyodbc
 redis
-litestar-saq
 schedule
 apscheduler
+websockets
+dbt
+

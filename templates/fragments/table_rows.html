@@ -1,0 +1,25 @@
+<tbody id="search-results-tbd"></tbody>
+{% for result_item in result_list %}
+{% if loop.last and shouldusepagination %}
+<tr  hx-get="/get_users3/"  hx-trigger="intersect once threshold:0.9"  hx-swap="afterend" hx-target="this" hx-indicator="#spinner">
+{% else %}
+<tr>
+    {% endif %}
+
+{% for clmsqn in user_page_squeunce %}
+   <th>{{ result_item[sql_column_sequnce[clmsqn]] }}</th>
+{% endfor %}
+
+</tr>
+{% endfor %}
+</tbody>
+
+
+
+{% if update_order_section %}
+<div class="collapse collapse-arrow bg-base-200 collapse-open mr-6" id="ordersection" hx-swap-oob="true">
+    {% include 'fragments/order_section.html' %}
+</div>
+{% endif %}
+
+

@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Document</title>
+  <link href="https://cdn.jsdelivr.net/npm/daisyui@4.4.24/dist/full.min.css" rel="stylesheet" type="text/css" />
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://unpkg.com/htmx.org@1.9.10"
+    integrity="sha384-D1Kt99CQMDuVetoL1lrYwg5t+9QdHe7NLX/SoJYkXDFfX37iInKRy5xLSi8nO7UC"
+    crossorigin="anonymous"></script>
+  <script src="https://unpkg.com/hyperscript.org@0.9.12"></script>
+  <script src="https://unpkg.com/htmx.org/dist/ext/ws.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.1/Sortable.min.js"></script>
+  <link rel="icon" href="data:;base64,iVBORw0KGgo=">
+  <script src="https://demo.htmx.org"></script>
+ 
+<style>
+  * { font-family: sans-serif; }
+
+table {
+  width: 50%;
+  border: 1px solid #ddd;
+  border-collapse: collapse;
+}
+
+th {
+  background-color: #444;
+  color: #eee;
+}
+
+th:hover {
+  cursor: pointer;
+}
+
+td, th {
+  padding: 5px;
+  border: 1px solid #ddd;  
+}
+</style>
+
+  <script>
+    htmx.onLoad(function (content) {
+      var sortables = content.querySelectorAll(".sortable");
+      for (var i = 0; i < sortables.length; i++) {
+        var sortable = sortables[i];
+        var sortableInstance = new Sortable(sortable, {
+          animation: 150,
+          ghostClass: 'blue-background-class',
+
+          // Make the `.htmx-indicator` unsortable
+          filter: ".htmx-indicator",
+          onMove: function (evt) {
+            return evt.related.className.indexOf('htmx-indicator') === -1;
+          },
+
+          // Disable sorting on the `end` event
+          onEnd: function (evt) {
+            this.option("disabled", true);
+          }
+        });
+
+        // Re-enable sorting on the `htmx:afterSwap` event
+        sortable.addEventListener("htmx:afterSwap", function () {
+          sortableInstance.option("disabled", false);
+        });
+      }
+    })
+  </script>
+
+
+<script type="text/hyperscript">
+  behavior Sortable
+    on click from <th/>
+      -- get all the headers and the index of the column
+      set headers to <th/> in me
+      set col to headers.indexOf(target)
+      
+      -- get the table body and the rows as an array
+      set tbody to the first <tbody/> in me
+      set rowArray to (<tr/> in tbody) as Array
+
+      -- if this is a first click on this header
+      -- clear the data-ascending attribute on any other header
+      if target @data-ascending is null
+        remove @data-ascending from headers
+      end
+      
+      -- sort the array depending on the ascending header
+      if target @data-ascending is 'true'
+        set target @data-ascending to 'false'
+        js(rowArray, col) 
+      rowArray.sort((row2, row1) => { return row1.children[col].innerText.localeCompare(row2.children[col].innerText);}); 
+      end 
+      else
+        set target @data-ascending to 'true'
+      js(rowArray, col) 
+      rowArray.sort((row1, row2) => { return row1.children[col].innerText.localeCompare(row2.children[col].innerText);}); 
+      end    
+      end
+      
+      -- merge back into the tbody
+      for row in rowArray
+        tbody.append(row)
+      end
+      
+      make an <a.navlink/> called myURL
+      log myURL
+    end
+
+
+
+    on htmx:wsAfterMessage from <tbody/>
+
+    end
+
+  end
+</script>
+
+<script src="https://demo.htmx.org"></script>
+
+
+</head>
+
+
+<!-- log 'hello'
+set allDivs to <div/>                      -- get all divs
+log allDivs
+set allParents to the parent of allDivs    -- get all parents of those divs as an array
+log allParents
+set allChildren to the children of allDivs -- get all children of those divs as an array
+log all -->
+
+<body>
+  <!-- <div class="flex-auto mb-2" id="maincontent">
+        <div class="flex p-8 border-dashed border-cyan-200 border-2 h-dvh flex-1" hx-ext="sse" sse-connect="/count" sse-swap="message">awefawefawfawe</div>
+    
+    </div> -->
+  <table _="install Sortable">
+    <thead>
+      <tr>
+        <th id="x12">
+          Col 1
+        </th>
+        <th>Col 2</th>
+        <th>
+          Col 3
+        </th>
+      </tr>
+    </thead>
+    <tbody id="contentsx" hx-ext="ws" ws-connect="/tblw">
+      <tr>
+        <td>ABC</td>
+        <td>20</td>
+        <td>A</td>
+      </tr>
+  
+    </tbody>
+  </table>
+
+  <h1>WW Example with HTMX</h1>
+  <ul id="xxxx" class="steps steps-vertical" ws-connect="/emoji">
+    <li class="step step-primary">Register</li>
+    <li class="step step-primary">Choose plan</li>
+    <li id="receivexx" class="step">Receive Product</li>
+  </ul>
+
+  
+  <form class="sortable" hx-post="/items" hx-trigger="end">
+        <div class="htmx-indicator">Updating...</div>
+        <div><input type='hidden' name='item' value='1'/>Item 1</div>
+        <div><input type='hidden' name='item' value='2'/>Item 2</div>
+        <div><input type='hidden' name='item' value='3'/>Item 3</div>
+        <div><input type='hidden' name='item' value='4'/>Item 4</div>
+        <div><input type='hidden' name='item' value='5'/>Item 5</div>
+      </form>
+
+</body>
+
+</html>
+
+
+<!-- sse.html -->
+<!-- <html>
+    <head>
+        <title>Go SSE</title>
+
+        <script src="https://unpkg.com/htmx.org@1.9.6"></script>
+        <script src="https://unpkg.com/htmx.org/dist/ext/sse.js"></script>
+    </head>
+    <body>
+
+    </body>
+</html> -->

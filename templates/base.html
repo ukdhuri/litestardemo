@@ -2,12 +2,20 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
+    <meta name="htmx-config" content='{"htmx.config.useTemplateFragments":true}'>
     <title>{{ title }}</title>
     <link href="https://cdn.jsdelivr.net/npm/daisyui@4.4.24/dist/full.min.css" rel="stylesheet" type="text/css" />
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/htmx.org@1.9.10" integrity="sha384-D1Kt99CQMDuVetoL1lrYwg5t+9QdHe7NLX/SoJYkXDFfX37iInKRy5xLSi8nO7UC" crossorigin="anonymous"></script>
+    <script src="https://unpkg.com/htmx.org/dist/ext/sse.js"></script>
+    <script>
+        htmx.config.useTemplateFragments = true;
+    </script>
     <script src="https://unpkg.com/hyperscript.org@0.9.12"></script>
     <link rel="icon" href="data:;base64,iVBORw0KGgo=">
+    <script src="https://unpkg.com/htmx.org/dist/ext/json-enc.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.1/Sortable.min.js"></script>
+    <script src="https://unpkg.com/htmx.org/dist/ext/json-enc.js"></script>
 
     {% block header %}
     {% endblock %}
@@ -37,6 +45,8 @@
 </head>
 <body>
 <!-- <body  data-theme="retro"> -->
+{% block hyperscript %}
+{% endblock %} 
 {% include 'fragments/drawer-up.html' %}
 {% block content %}
 {% endblock %}

@@ -1,0 +1,29 @@
+
+
+ <input type="radio" name="my-accordion-2" checked="checked" />
+  <div class="collapse-title text-xl font-medium"> Order By .. </div>
+  <div class="collapse-content" id="order_collapse_content">
+    <form id="orderable" class="sortable" hx-post="/get_users3" hx-trigger="end, submit" hx-ext='json-enc' hx-target="#search-results-tbl" hx-indicator="#spinnertop">
+      {% for order_clm_index in sql_order_sequnce %}
+      <div class="join mr-6">
+          <button class="btn join-item btn-secondary btn-outline cursor-grab" type="button"> {{  clm_name_mapping[sql_column_sequnce[order_clm_index]] }}   <input type='hidden' name='order_list' value='{{ order_clm_index }}' />
+          </button>
+           <button class="btn join-item btn-secondary btn-outline"   type="button">
+            <label class="swap swap-rotate text-3xl">
+              <!-- this hidden checkbox controls the state  install Orderbehaviour-->
+              <input id="changer{{ loop.index0 }}" type="checkbox" _="install Orderbehaviour"  />
+              <div class="swap-on">{% if rev_direction[sql_order_direction[loop.index0]] == 0 %}🡡{% else %}🡣{% endif  %}</div>
+              <div class="swap-off">{% if sql_order_direction[loop.index0] == 0 %}🡡{% else %}🡣{% endif  %}</div>
+            </label>
+            <input type='hidden' name='order_list' value='{{ sql_order_direction[loop.index0] }}' />
+          </button>
+        </div>
+      {% endfor %}
+    </form>
+  </div>
+
+
+  <!-- {% if sql_column_sequnce[order_clm_index] == 1 %} 🡣 {% else %} 🡡 {% endif %} -->
+
+
+  

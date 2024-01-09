@@ -1,0 +1,30 @@
+{{ cte_select_statment }}
+ select
+{% for clmname in sql_column_sequnce %}
+{{ clmname }} {% if not loop.last %} , {% endif %}
+{% endfor %}
+from
+result_cte
+{% if search_query %}
+{% for search_clm_index in valid_search_columns %}
+{% if loop.first %} where {% endif %}
+{{ sql_column_sequnce[search_clm_index] }} like '%{{ search_query }}%' {% if not loop.last %} or {% endif %} 
+{% endfor %}
+{% endif %}
+
+
+order by
+{% for clmsqn in sql_order_sequnce %} {{ clmsqn + 1 }}  {{ direction_dict[sql_order_direction[loop.index0]] }} {% if not loop.last %} , {% endif %} {% endfor %}
+
+
+{% if page_size > 0 %}
+
+{% if dilect == 'tsql' %}
+OFFSET {{ (page_number - 1) * page_size }} ROWS
+FETCH NEXT {{ page_size }} ROWS ONLY
+{% else %}
+limit {{ (page_number - 1) * page_size  ,  page_size }} ;
+{% endif %}
+
+{% endif %}
+

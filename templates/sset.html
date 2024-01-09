@@ -1,0 +1,45 @@
+
+
+  <!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Document</title>
+  
+    <link href="https://cdn.jsdelivr.net/npm/daisyui@4.4.24/dist/full.min.css" rel="stylesheet" type="text/css" />
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/htmx.org@1.9.10" integrity="sha384-D1Kt99CQMDuVetoL1lrYwg5t+9QdHe7NLX/SoJYkXDFfX37iInKRy5xLSi8nO7UC" crossorigin="anonymous"></script>
+    <script src="https://unpkg.com/htmx.org/dist/ext/sse.js"></script>
+    <script src="https://unpkg.com/hyperscript.org@0.9.12"></script>
+    <link rel="icon" href="data:;base64,iVBORw0KGgo=">
+</head>
+<body>
+    <!-- <div class="flex-auto mb-2" id="maincontent">
+        <div class="flex p-8 border-dashed border-cyan-200 border-2 h-dvh flex-1" hx-ext="sse" sse-connect="/count" sse-swap="message">awefawefawfawe</div>
+    
+    </div> -->
+
+    <h1>SSE Example with HTMX</h1>
+    <div hx-ext="sse" sse-connect="/count" sse-swap="vivi">
+        Contents of this box will be updated in real time with every SSE message received from the chatroom.
+    </div>
+    <div hx-ext="sse" sse-connect="/count2" sse-swap="ssss">
+        Contents of this box will be updated in real time with every SSE message received from the chatroom.
+    </div>
+</body>
+</html>
+
+
+<!-- sse.html -->
+<!-- <html>
+    <head>
+        <title>Go SSE</title>
+
+        <script src="https://unpkg.com/htmx.org@1.9.6"></script>
+        <script src="https://unpkg.com/htmx.org/dist/ext/sse.js"></script>
+    </head>
+    <body>
+
+    </body>
+</html> -->

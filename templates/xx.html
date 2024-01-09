@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Document</title>
+
+  <style>
+    * { font-family: sans-serif; }
+
+table {
+  width: 50%;
+  border: 1px solid #ddd;
+  border-collapse: collapse;
+}
+
+th {
+  background-color: #444;
+  color: #eee;
+}
+
+th:hover {
+  cursor: pointer;
+}
+
+td, th {
+  padding: 5px;
+  border: 1px solid #ddd;  
+}
+
+
+</style>
+
+  
+  <link href="https://cdn.jsdelivr.net/npm/daisyui@4.4.24/dist/full.min.css" rel="stylesheet" type="text/css" />
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://unpkg.com/htmx.org@1.9.10" integrity="sha384-D1Kt99CQMDuVetoL1lrYwg5t+9QdHe7NLX/SoJYkXDFfX37iInKRy5xLSi8nO7UC" crossorigin="anonymous"></script>
+  <script src="https://unpkg.com/htmx.org/dist/ext/sse.js"></script>
+  <script src="https://unpkg.com/hyperscript.org@0.9.12"></script>
+  <link rel="icon" href="data:;base64,iVBORw0KGgo=">
+
+  <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.1/Sortable.min.js
+"></script>
+
+
+<script type="text/javascript">
+  htmx.onLoad(function(content) {
+    var sortables = content.querySelectorAll(".sortable");
+    for (var i = 0; i < sortables.length; i++) {
+      var sortable = sortables[i];
+      var sortableInstance = new Sortable(sortable, {
+          animation: 150,
+          ghostClass: 'blue-background-class',
+
+          // Make the `.htmx-indicator` unsortable
+          filter: ".htmx-indicator",
+          onMove: function (evt) {
+            return evt.related.className.indexOf('htmx-indicator') === -1;
+          },
+
+          // Disable sorting on the `end` event
+          onEnd: function (evt) {
+         //   this.option("disabled", true);
+          }
+      });
+
+      // Re-enable sorting on the `htmx:afterSwap` event
+      sortable.addEventListener("htmx:afterSwap", function() {
+        sortableInstance.option("disabled", false);
+      });
+    }
+})
+</script>
+
+</head>
+<body>
+  
+
+  
+ 
+
+
+  <form class="sortable" hx-post="/items" hx-trigger="end">
+    <div class="htmx-indicator">Updating...</div>
+    <div ><input type='hidden' name='item' value='1'/>Item 1</div>
+    <div><input type='hidden' name='item' value='2'/>Item 2</div>
+    <div><input type='hidden' name='item' value='3'/>Item 3</div>
+    <div><input type='hidden' name='item' value='4'/>Item 4</div>
+    <div><input type='hidden' name='item' value='5'/>Item 5</div>
+  </form>
+</body>
+</html>

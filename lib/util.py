@@ -1,6 +1,7 @@
 import queue
 import subprocess
 from typing import Optional
+from faker import Faker
 from loguru import logger
 from omegaconf import DictConfig
 from sqlalchemy import Engine
@@ -89,3 +90,9 @@ async def get_todo_listX(done: Optional[bool], session: AsyncSession) -> list[re
 
 async def get_all_users(session: AsyncSession) -> list[remote.User]:
    return session.execute(select(remote.User)).scalars().all()
+
+
+
+async def getemoji() -> str:
+    fake = Faker()
+    return fake.emoji()

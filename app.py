@@ -1,10 +1,7 @@
+
 import signal
 from typing import TYPE_CHECKING
-from typing import Optional
-from hydra import compose, initialize
-import logging
-import sys
-from litestar import Controller, Litestar, Response, Router, get
+from litestar import Controller, Litestar, Request, Response, Router, WebSocket, get, websocket
 import os
 from datetime import datetime, time, timedelta
 from litestar import app
@@ -14,6 +11,7 @@ import controllers
 import controllers.Home
 import controllers.Status
 import controllers.Factory
+import controllers.SocketWeb
 from lib.dependencies import (
     db_remote,
     db_local,
@@ -22,35 +20,34 @@ from lib.dependencies import (
     provide_transaction_local,
 )
 from lib.logging import logging_config
-from lib.scheduler import start_scheduler, stop_scheduler
-from lib.service import get_product_fn
-from lib.util import on_startup, lstate
-from litestar.datastructures import State
-from models.local import DenormalizedOrder
+from lib.scheduler import getemoji, scheduled_task, start_scheduler, stop_scheduler
+from lib.util import on_startup
 from litestar.contrib.jinja import JinjaTemplateEngine
 from litestar.template.config import TemplateConfig
 from pathlib import Path
 from litestar.contrib.htmx.request import HTMXRequest
-from litestar.contrib.htmx.response import HTMXTemplate
-from sqlalchemy.ext.asyncio import AsyncSession
-from litestar.response import Template
 from models import remote
 from sqlmodel import select
 from lib.stores import stores
 import lib.exception as exception
-from litestar.exceptions import HTTPException, ValidationException
 from litestar.status_codes import HTTP_500_INTERNAL_SERVER_ERROR
-# xxxst.get("foo", renew_for=1)
-from apscheduler.schedulers.asyncio   import AsyncIOScheduler
-from collections.abc import AsyncGenerator
-from litestar.types import ASGIApp, Scope, Receive, Send
-from litestar.middleware import MiddlewareProtocol
+from litestar.channels import ChannelsPlugin
+from litestar.channels.backends.memory import MemoryChannelsBackend
+from litestar.static_files.config import StaticFilesConfig
+from litestar.channels import ChannelsPlugin
+from litestar.channels.backends.memory import MemoryChannelsBackend
+from pathlib import Path
+from litestar import get
+from litestar.response import File
 import asyncio
+from apscheduler.schedulers.asyncio   import AsyncIOScheduler
+from litestar import Litestar, get
+from litestar.response import Template
+
 
 
 if TYPE_CHECKING:
     from litestar.types import ASGIApp, Receive, Scope, Send
-
 
 async def on_startup():
     await start_scheduler(app)
@@ -58,14 +55,37 @@ async def on_startup():
 async def on_shutdown():
     await stop_scheduler(app)
 
-@get(["/shutdown"], sync_to_thread=False)
+@get(["/bar"], sync_to_thread=False)
 def shutdown() -> str:
     os.kill(os.getpid(), signal.SIGTERM)
     return "Shutting down" 
 
 
+@get(path="/favicon.ico", media_type="image/x-icon")
+def handle_file_download() -> File:
+    return File(
+        path=Path(Path(__file__).resolve().parent,"static" ,"favicon").with_suffix(".ico"),
+        filename="favicon.ico",
+    )
+ 
+@get(["/testwebsocket"], sync_to_thread=False)
+async def testwebsocket(request: Request, channels: ChannelsPlugin) -> Response:
+    if 'publisher_started' in app.state:
+        return Response[None]
+    emo = await getemoji()
+    #[channels.publish(await getemoji(), channels=[chnl]) for chnl in request.app.dependencies['channels'].value._channels]
+    scheduler = AsyncIOScheduler()
+    #scheduler.add_job(scheduled_task, "interval", seconds=5, args=[app,channels])
+    scheduler.start()
+    app.state['scheduler'] = scheduler
+    app.state['publisher_started']  = True
+    app.state['schedulerrequest']  = request
+    return Response[True]
+
+
+
 app = Litestar(
-    [shutdown,controllers.Home.HomeController, controllers.Factory.FactoryController],
+    [testwebsocket,handle_file_download,shutdown,controllers.Home.HomeController,controllers.Factory.FactoryController,controllers.SocketWeb.SocketWebController],
     exception_handlers=exception.exception_handlers,
     request_class=HTMXRequest,
     dependencies={
@@ -81,9 +101,17 @@ app = Litestar(
     ),
     debug=True,
     stores=stores,
+    plugins=[ChannelsPlugin(channels=["emoji"],backend=MemoryChannelsBackend(history=10000),arbitrary_channels_allowed=True,create_ws_route_handlers=True,ws_handler_send_history=10000)]
 
 )
 
+
+
+
+
+
+#backend.add_job(my_async_function, 'interval', seconds=10, args=[provide_transaction_remote])
+#
 
 # logger.debug('👌👌👌👌😊😊😊😊😊')
 # scheduler.add_job(my_async_function, 'interval', seconds=10, args=[provide_transaction_remote])

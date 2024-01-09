@@ -1,0 +1,22 @@
+<table class="table table-xl table-zebra table-pin-rows" id="search-results-tbl" >
+    <thead>
+    <tr>
+    {% for clmsqn in user_page_squeunce %}
+       <th>{{ clm_name_mapping[sql_column_sequnce[clmsqn]] }}</th>
+    {% endfor %}
+    </tr>
+    </thead>
+
+    {% include 'fragments/table_rows.html' %}
+
+
+<tfoot>
+    <tr>
+    {% for clmsqn in user_page_squeunce %}
+       <th>{{ clm_name_mapping[sql_column_sequnce[clmsqn]] }}</th>
+    {% endfor %}
+    </tr>
+</tfoot>
+</table>
+
+
