@@ -1,7 +1,69 @@
 {% extends 'base.html' %}
+{% block javascript %}
+<script type="text/javascript">
+
+  document.body.addEventListener("showMessage", function(attr){
+     var page_number_input = document.getElementById('page_number');
+     page_number_input.value =  Number(page_number_input.value) + 1;
+
+//      let element = document.getElementById('myElement');
+// let event = new CustomEvent('myEvent', { detail: { foo: 'bar' } });
+// element.dispatchEvent(event);
+
+  let event = new Event('nextpage');
+    page_number_input.dispatchEvent(event);
+})
+
+
+document.body.addEventListener("resetpagenumber", function(evt){
+  var page_number_input = document.getElementById('page_number');
+     page_number_input.value =  1;
+})
+
+  function addSortable(conent)
+  {
+    var sortables = conent.querySelectorAll(".sortable");
+    for (var i = 0; i < sortables.length; i++) {
+      var sortable = sortables[i];
+      var sortableInstance = new Sortable(sortable, {
+        animation: 150,
+        ghostClass: 'blue-background-class',
+        // Make the `.htmx-indicator` unsortable
+        filter: ".htmx-indicator",
+        onMove: function (evt) {
+          return evt.related.className.indexOf('htmx-indicator') === -1;
+        },
+        // Disable sorting on the `end` event
+        onEnd: function (evt) {
+          this.option("disabled", true);
+        }
+      });
+      // Re-enable sorting on the `htmx:afterSwap` event
+     
+
+      sortable.addEventListener("htmx:afterOnLoad", function() {        
+        //alert('htmx:afterOnLoad')
+        //console.log(imsortableInstance)
+        sortableInstance.option("disabled", false);
+        //console.log(sortableInstance.option("disabled"))
+
+
+      });
+     
+    }
+  }
+
+
+
+  htmx.onLoad(function (content) {
+      addSortable(content);
+  })
+</script>
+{% endblock %}
+
 {% block hyperscript %}
 <script type="text/hyperscript">
-  behavior Orderbehaviour       
+  behavior Order_Behaviour
     on change 
       set :l1 to next <input/>
       if value of :l1 is 0 then
@@ -13,59 +75,47 @@
     end
   end
 </script>
-{% endblock %} 
+<!-- <script type="text/hyperscript">
+  behavior LastRowBehaviour
+    on load
+     call alert(111)
+    end
+    on intersection(intersecting) having threshold 0.9
+      set :lpn to the value of  <input#page_number/>
+      set :lpage_size to the value of <input#page_size/>
+      call alert(:lpn) then
+      call alert(:lpage_size)
+    end
+  end
+</script> -->
+
+{% endblock %}
 {% block content %}
-<div class="flex-auto mb-2" id="maincontent" hx-include="[name='order_list'] , [name='search_query']">
-  <!-- hx-include="[name='page_number'], [name='page_size']" -->
-  <div class="flex flex-row-reverse p-2" >
+<div class="flex-auto mb-2" id="maincontent" hx-include="[name='order_list'] , [name='search_query']" hx-trigger="input changed from:#page_number">
+  <input type="hidden" name="page_size" id="page_size" value="33"  class="hidden">
+  <input  type="hidden" name="page_number" id="page_number"  hx-include="[name='page_number'], [name='page_size'], [name='order_list'] , [name='search_query']" value="1" hx-ext='json-enc' hx-trigger="nextpage" hx-post="/get_users3" class="hidden">
 
-    <input  class="input input-bordered input-primary input-md max-w-xs form-control" type="search" name="search_query" hx-ext='json-enc' hx-target="#search-results-tbl"
-      id="search" value="{{ search_text }}" placeholder="Begin Typing To Search Users..." hx-post="/get_users3" 
-      hx-trigger="input changed delay:500ms, search" hx-indicator="#spinnertop">
-  <div class="collapse collapse-arrow bg-base-200 collapse-open mr-6" id="ordersection">
-    {% include 'fragments/order_section.html' %}
+  <!-- hx-include="[name='page_number'], [name='page_size']" _="on nextpage call /hx-post"  -->
+  <div class="flex flex-row-reverse p-2">
+
+    <input class="input input-bordered input-primary input-md max-w-xs form-control" type="search" name="search_query"
+      hx-ext='json-enc' hx-target="#search-results-tbl" id="search" value="{{ search_text }}"
+      placeholder="Begin Typing To Search Users..." hx-post="/get_users3" hx-trigger="input changed delay:500ms, search"
+      hx-indicator="#spinnertop">
+    <div class="collapse collapse-arrow bg-base-200 collapse-open mr-6" id="ordersection">
+      {% include 'fragments/order_section.html' %}
+    </div>
+
+
   </div>
 
-
-  </div>
-
-    <div class="divider divider-primary">{{ title }}</div>
-    <div id="spinnertop" class="my-indicator border-red-300">
+  <div class="divider divider-primary">{{ title }}</div>
+  <div id="spinnertop" class="my-indicator border-red-300">
     <div class="flex justify-center border-5"><span class="loading loading-ring loading-lg"></span></div>
-    </div>
-    {% include 'fragments/table_and_rows.html' %}
-    <div id="spinnerbottom" class="htmx-indicator flex justify-center"><span class="loading loading-ring loading-lg"></span>
-    </div>
+  </div>
+  {% include 'fragments/table_and_rows.html' %}
+  <div id="spinnerbottom" class="htmx-indicator flex justify-center"><span
+      class="loading loading-ring loading-lg"></span>
+  </div>
 </div>
-  {% endblock %}
-
-
-  {% block javascript %}
-<script type="text/javascript">
-    htmx.onLoad(function(content) {
-      var sortables = content.querySelectorAll(".sortable");
-      for (var i = 0; i < sortables.length; i++) {
-        var sortable = sortables[i];
-        var sortableInstance = new Sortable(sortable, {
-          animation: 150,
-          ghostClass: 'blue-background-class',
-          // Make the `.htmx-indicator` unsortable
-          filter: ".htmx-indicator",
-          onMove: function(evt) {
-            return evt.related.className.indexOf('htmx-indicator') === -1;
-          },
-          // Disable sorting on the `end` event
-          onEnd: function(evt) {
-            //this.option("disabled", true);
-          }
-        });
-        // Re-enable sorting on the `htmx:afterSwap` event
-        sortable.addEventListener("htmx:afterSwap", function() {
-          imsortableInstance.option("disabled", false);
-        });
-      }
-    })
-</script>
-{% endblock %} 
-
-
+{% endblock %}

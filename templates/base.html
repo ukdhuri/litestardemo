@@ -45,13 +45,13 @@
 </head>
 <body>
 <!-- <body  data-theme="retro"> -->
+{% block javascript %}
+{% endblock %} 
 {% block hyperscript %}
 {% endblock %} 
 {% include 'fragments/drawer-up.html' %}
 {% block content %}
 {% endblock %}
 {% include 'fragments/drawer-down.html' %}
-{% block javascript %}
-{% endblock %} 
 </body>
 </html>

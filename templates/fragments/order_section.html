@@ -11,11 +11,11 @@
            <button class="btn join-item btn-secondary btn-outline"   type="button">
             <label class="swap swap-rotate text-3xl">
               <!-- this hidden checkbox controls the state  install Orderbehaviour-->
-              <input id="changer{{ loop.index0 }}" type="checkbox" _="install Orderbehaviour"  />
+              <input id="lchanger{{ loop.index0 }}" type="checkbox" _="install Order_Behaviour" />
               <div class="swap-on">{% if rev_direction[sql_order_direction[loop.index0]] == 0 %}🡡{% else %}🡣{% endif  %}</div>
               <div class="swap-off">{% if sql_order_direction[loop.index0] == 0 %}🡡{% else %}🡣{% endif  %}</div>
             </label>
-            <input type='hidden' name='order_list' value='{{ sql_order_direction[loop.index0] }}' />
+            <input id="changer{{ loop.index0 }}" type='hidden' name='order_list' value='{{ sql_order_direction[loop.index0] }}' />
           </button>
         </div>
       {% endfor %}

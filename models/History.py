@@ -16,7 +16,7 @@ from sqlalchemy.exc import IntegrityError, InvalidRequestError
 
 class SearchAndOrder(SQLModel, table=False):
     page_number : Optional[int] = 1
-    page_size : Optional[int] = 100
+    page_size : Optional[int] = 33
     order_list : Optional[list[Union[int, str]]] = [0,0]
     search_query : Optional[str] = ""
 
@@ -41,8 +41,76 @@ class SearchAndOrder(SQLModel, table=False):
         else:
             return [0]
 
+class History(SQLModel, table=False):
 
-class UserHistory(SQLModel, table=False):
+    def sql_column_sequnce() -> list[str]:
+        return ["id", "name", "email", "address", "date_of_birth", "phone_number"]
+
+    def user_page_squeunce() -> list[int]:
+        return [0, 1, 2, 3, 4, 5]
+
+    def sql_order_sequnce() -> list[int]:
+        return [0,1,2,3]
+
+    def sql_order_direction() -> list[int]:
+        return [0,1,0,0]
+
+    def sql_valid_search_columns() -> list[str]:
+        return [1, 2]
+
+    def get_select_clause() -> list[str]:
+        return """
+            with result_cte as (
+                    SELECT  [id]
+                        ,[name]
+                        ,[email]
+                        ,[password]
+                        ,[phone_number]
+                        ,[address]
+                        ,[date_of_birth]
+                    FROM [user]
+            )
+        """
+    
+# class UserHistory(SQLModel, table=False):
+#     id: Optional[int]
+#     name: Optional[str]
+#     email: Optional[str]
+#     address: Optional[str]
+#     date_of_birth: Optional[date]
+#     phone_number: Optional[str]
+
+#     def sql_column_sequnce() -> list[str]:
+#         return ["id", "name", "email", "address", "date_of_birth", "phone_number"]
+
+#     def user_page_squeunce() -> list[int]:
+#         return [0, 1, 2, 3, 4, 5]
+
+#     def sql_order_sequnce() -> list[int]:
+#         return [0,1,2,3]
+
+#     def sql_order_direction() -> list[int]:
+#         return [0,1,0,0]
+
+#     def sql_valid_search_columns() -> list[str]:
+#         return [1, 2]
+
+#     def get_select_clause() -> list[str]:
+#         return """
+#             with result_cte as (
+#                     SELECT  [id]
+#                         ,[name]
+#                         ,[email]
+#                         ,[password]
+#                         ,[phone_number]
+#                         ,[address]
+#                         ,[date_of_birth]
+#                     FROM [user]
+#             )
+#         """
+
+
+class UserHistory(History, table=False):
     id: Optional[int]
     name: Optional[str]
     email: Optional[str]
@@ -78,3 +146,5 @@ class UserHistory(SQLModel, table=False):
                     FROM [user]
             )
         """
+
+   

@@ -10,7 +10,7 @@
     {% include 'fragments/table_rows.html' %}
 
 
-<tfoot>
+<tfoot id="history_footer">
     <tr>
     {% for clmsqn in user_page_squeunce %}
        <th>{{ clm_name_mapping[sql_column_sequnce[clmsqn]] }}</th>

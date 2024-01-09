@@ -9,7 +9,7 @@ from models import remote,History
 from sqlalchemy.ext.asyncio import AsyncSession
 from lib.util import get_todo_listX, get_all_users
 from litestar.contrib.htmx.request import HTMXRequest
-from litestar.contrib.htmx.response import HTMXTemplate, HXLocation
+from litestar.contrib.htmx.response import HTMXTemplate, HXLocation,TriggerEvent
 from litestar.response import Template
 from litestar.contrib.jinja import JinjaTemplateEngine
 from litestar.template.config import TemplateConfig
@@ -114,7 +114,7 @@ class HomeController(Controller):
         sql_column_sequnce = History.UserHistory.sql_column_sequnce()
         sql_order_sequnce = History.UserHistory.sql_order_sequnce()
         sql_order_direction = History.UserHistory.sql_order_direction()
-        achemylist = await get_historical_result(request=request, asyncsession = transaction_remote, search_query='', page_number=1, page_size=-1, scalar=False, cte_select_statment=History.UserHistory.get_select_clause()
+        achemylist = await get_historical_result(request=request, asyncsession = transaction_remote, search_query='', page_number=1, page_size=33, scalar=False, cte_select_statment=History.UserHistory.get_select_clause()
                                   , sql_column_sequnce=sql_column_sequnce, sql_order_sequnce=sql_order_sequnce
                                    , sql_order_direction=sql_order_direction, valid_search_columns=History.UserHistory.sql_valid_search_columns())
         rsultlist = [History.UserHistory(**row._asdict()) for row in achemylist]
@@ -134,6 +134,9 @@ class HomeController(Controller):
                 template_name='history.html', context=context
         )
     
+
+
+    
     @post(["/get_users3"], sync_to_thread=False)
     async def get_users3(
         self,
@@ -151,11 +154,6 @@ class HomeController(Controller):
         sql_column_sequnce = History.UserHistory.sql_column_sequnce()
         user_page_squeunce =  History.UserHistory.user_page_squeunce()
         valid_search_columns=History.UserHistory.sql_valid_search_columns()
-        if not data.order_list:
-            sql_order_sequnce = History.UserHistory.sql_order_sequnce()
-            sql_order_direction = History.UserHistory.sql_order_direction()
-
-
 
         achemylist = await get_historical_result(request=request, asyncsession = transaction_remote, search_query=data.search_query, page_number=data.page_number, page_size=data.page_size, scalar=False, cte_select_statment=History.UserHistory.get_select_clause()
                                   , sql_column_sequnce=sql_column_sequnce, sql_order_sequnce=data.order_sequnce
@@ -172,12 +170,29 @@ class HomeController(Controller):
             "sql_order_direction": data.order_direction,
             "clm_name_mapping" : static.constants.clm_name_mapping,
             "rev_direction": static.constants.rev_direction,
-            "update_order_section"  : True
+            "update_order_section"  : True,
         }
+        template_name='fragments/table_and_rows.html'
+        if data.page_number > 1:
+            template_name='fragments/table_rows.html'
+            return HTMXTemplate(
+                    template_name=template_name,context=context,
+                     re_swap="beforebegin",  # change swapping method
+                     re_target=f"#history_footer",  # change target element
+            )
         return HTMXTemplate(
-                template_name='fragments/table_and_rows.html', context=context
-        )   
-      
+            template_name=template_name,context=context,trigger_event="resetpagenumber",after="receive"
+        )       
+
+    
+    @get(path="/history_page_event")
+    async def history_page_event(self, request: HTMXRequest) -> TriggerEvent:
+        return TriggerEvent(
+            content="",
+            name="showMessage",
+            params={"attr": "valuexxx"},
+            after="swap",  # possible values 'receive', 'settle', and 'swap'
+        )
 
     @get(path="/preview")
     async def preview(self, request: HTMXRequest) -> Template:
