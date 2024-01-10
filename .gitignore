@@ -11,3 +11,5 @@ response-cache/*
 tempdatafs/*
 favicon.ico
 /aap1.py
+*csv
+*xlsx

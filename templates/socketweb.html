@@ -80,21 +80,29 @@ td, th {
       -- get the table body and the rows as an array
       set tbody to the first <tbody/> in me
       set rowArray to (<tr/> in tbody) as Array
-
+  
       -- if this is a first click on this header
       -- clear the data-ascending attribute on any other header
       if target @data-ascending is null
         remove @data-ascending from headers
       end
+
+      log target
+      
+
       
       -- sort the array depending on the ascending header
       if target @data-ascending is 'true'
-        set target @data-ascending to 'false'
+        set target @data-ascending to 'false' then
+        set hcx to the first <span/> in target
+        set {  innerText: "⬇️" } on hcx
         js(rowArray, col) 
       rowArray.sort((row2, row1) => { return row1.children[col].innerText.localeCompare(row2.children[col].innerText);}); 
       end 
       else
         set target @data-ascending to 'true'
+        set hcx to the first <span/> in target
+        set {  innerText: "⬆️" } on hcx
       js(rowArray, col) 
       rowArray.sort((row1, row2) => { return row1.children[col].innerText.localeCompare(row2.children[col].innerText);}); 
       end    
@@ -105,8 +113,7 @@ td, th {
         tbody.append(row)
       end
       
-      make an <a.navlink/> called myURL
-      log myURL
+
     end
 
 
@@ -141,21 +148,30 @@ log all -->
     <thead>
       <tr>
         <th id="x12">
-          Col 1
+          Col 1 <span></span>
         </th>
-        <th>Col 2</th>
+        <th>Col 2 <span></span></th>
         <th>
-          Col 3
+          Col 3 <span></span>
         </th>
       </tr>
     </thead>
     <tbody id="contentsx" hx-ext="ws" ws-connect="/tblw">
       <tr>
         <td>ABC</td>
-        <td>20</td>
-        <td>A</td>
+        <td>21</td>
+        <td>G</td>
       </tr>
-  
+      <tr>
+        <td>XBC</td>
+        <td>07</td>
+        <td>F</td>
+      </tr>
+      <tr>
+        <td>YBC</td>
+        <td>56</td>
+        <td>R</td>
+      </tr>
     </tbody>
   </table>
 
