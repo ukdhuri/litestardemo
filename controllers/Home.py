@@ -13,7 +13,7 @@ from models import remote,History
 from sqlalchemy.ext.asyncio import AsyncSession
 from lib.util import get_todo_listX, get_all_users
 from litestar.contrib.htmx.request import HTMXRequest
-from litestar.contrib.htmx.response import HTMXTemplate, HXLocation,TriggerEvent
+from litestar.contrib.htmx.response import HTMXTemplate, HXLocation,TriggerEvent,ClientRedirect
 from litestar.response import Template
 from litestar.contrib.jinja import JinjaTemplateEngine
 from litestar.template.config import TemplateConfig
@@ -147,7 +147,7 @@ class HomeController(Controller):
         request: Request,
         transaction_remote: AsyncSession ,
         data: History.SearchAndOrder
-    ) -> File:
+    ) -> ClientRedirect:
         lhist = History.UserHistory()
         achemylist = await get_historical_result(request=request, asyncsession = transaction_remote,
                                                    scalar=False, tracker=data, histmodel=History.UserHistory)
@@ -157,7 +157,11 @@ class HomeController(Controller):
         file = f'output_{now.strftime("%Y-%m-%d_%H-%M-%S%f")}.xlsx'
         filepath=Path(Path(__file__).resolve().parent.parent, "static", file)
         df.to_excel(filepath, index=False)
+        return ClientRedirect(
+            redirect_to=f"/static/{file}",           
+        )
         return File(
+            content_disposition_type="attachment",
             path=filepath,
             filename=file,
         )   
