@@ -19,7 +19,7 @@ order by
 
 {% if page_size > 0 %}
 
-{% if dilect == 'tsql' %}
+{% if dilect == 'TSQL' %}
 OFFSET {{ (page_number - 1) * page_size }} ROWS
 FETCH NEXT {{ page_size }} ROWS ONLY
 {% else %}

@@ -86,6 +86,10 @@ async def testwebsocket(request: Request, channels: ChannelsPlugin) -> Response:
 
 app = Litestar(
     [testwebsocket,handle_file_download,shutdown,controllers.Home.HomeController,controllers.Factory.FactoryController,controllers.SocketWeb.SocketWebController],
+    static_files_config=[
+        StaticFilesConfig(directories=["static"], path="/static",send_as_attachment=True,),
+        
+    ],
     exception_handlers=exception.exception_handlers,
     request_class=HTMXRequest,
     dependencies={

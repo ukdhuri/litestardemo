@@ -11,7 +11,8 @@ from sqlmodel import select, and_
 from datetime import date
 import copy
 from typing import TypeVar
-import static.constants
+from models.History import BaseHistory, SearchAndOrder
+import static.SConstants
 from litestar.response import Template
 
 def read_sql_query(con, stmt):
@@ -21,31 +22,37 @@ async def get_df(stmt, engine):
     data = pd.read_sql(stmt, engine)
     return data
 
+
+async def build_context(title: str, resultlist: list[BaseHistory], hist: BaseHistory,data: SearchAndOrder,update_order_section = False,shouldusepagination = False) -> dict:
+    return  {
+        "title": title,
+        "result_list": resultlist,
+        "user_page_squeunce": hist.get_user_page_squeunce(),
+        "sql_column_sequnce": hist.get_sql_column_sequnce(),
+        "sql_order_sequnce": data.order_sequnce,
+        "sql_order_direction": data.order_direction,
+        "clm_name_mapping" : static.SConstants.clm_name_mapping,
+        "rev_direction": static.SConstants.rev_direction,
+        "update_order_section"  : update_order_section
+    }
 async def get_historical_result(
     request: Request,
     asyncsession: AsyncSession,
-    search_query: str = "",
-    page_number: int = 1,
-    page_size: int = 33,
-    cte_select_statment : str = "",
-    sql_column_sequnce : list[str] = [],
-    sql_order_sequnce : list[int] = [0],
-    sql_order_direction: list[str] = [1],
-    valid_search_columns = [],
     scalar: bool = False,
-    dilect : str = 'tsql'
-
+    dilect : str = static.SConstants.Dilects.TSQL.name,
+    tracker: Optional[SearchAndOrder] = None,
+    histmodel: Optional[BaseHistory] = None
     ):
         context = {
-            'cte_select_statment':cte_select_statment,
-            'sql_column_sequnce':sql_column_sequnce,
-            'sql_order_sequnce':sql_order_sequnce,
-            'sql_order_direction':sql_order_direction,
-            'direction_dict': static.constants.direction,
-            'valid_search_columns': valid_search_columns,
-            'search_query': search_query,
-            'page_number': page_number,
-            'page_size': page_size,
+            'cte_select_statment':histmodel.get_select_clause(),
+            'sql_column_sequnce':histmodel.get_sql_column_sequnce(),
+            'sql_order_sequnce': tracker.order_sequnce,
+            'sql_order_direction':tracker.order_direction,
+            'direction_dict': static.SConstants.direction,
+            'valid_search_columns': histmodel.get_sql_valid_search_columns(),
+            'search_query': tracker.search_query,
+            'page_number': tracker.page_number,
+            'page_size': tracker.page_size,
             'dilect' : dilect
         }
         sql_statement = Template(template_name="sql/history.txt",context=context).to_asgi_response(request.app,request).body.decode("utf-8")

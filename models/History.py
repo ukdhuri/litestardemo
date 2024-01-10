@@ -41,23 +41,31 @@ class SearchAndOrder(SQLModel, table=False):
         else:
             return [0]
 
-class History(SQLModel, table=False):
 
-    def sql_column_sequnce() -> list[str]:
-        return ["id", "name", "email", "address", "date_of_birth", "phone_number"]
 
-    def user_page_squeunce() -> list[int]:
-        return [0, 1, 2, 3, 4, 5]
 
-    def sql_order_sequnce() -> list[int]:
-        return [0,1,2,3]
 
-    def sql_order_direction() -> list[int]:
-        return [0,1,0,0]
+class BaseHistory(SQLModel, table=False):
+    def get_sql_column_sequnce() -> list[str]:
+        return ["id"]
+    @staticmethod
+    def get_user_page_squeunce() -> list[int]:
+        return [0]
 
-    def sql_valid_search_columns() -> list[str]:
-        return [1, 2]
+    @staticmethod
+    def get_sql_order_sequnce() -> list[int]:
+        return [0]
 
+    @staticmethod
+    def get_sql_order_direction() -> list[int]:
+        return [0]
+
+    @staticmethod
+    def get_sql_valid_search_columns() -> list[str]:
+        return []
+    
+
+    @staticmethod
     def get_select_clause() -> list[str]:
         return """
             with result_cte as (
@@ -71,6 +79,13 @@ class History(SQLModel, table=False):
                     FROM [user]
             )
         """
+    
+    @computed_field
+    @property
+    def order_list(self) -> Optional[list[int]]:
+        combined_list = list(map(lambda x, y: [x, y], self.get_sql_order_sequnce(), self.get_sql_order_direction()))
+        flattened_list = [item for sublist in combined_list for item in sublist]
+        return flattened_list
     
 # class UserHistory(SQLModel, table=False):
 #     id: Optional[int]
@@ -110,29 +125,30 @@ class History(SQLModel, table=False):
 #         """
 
 
-class UserHistory(History, table=False):
-    id: Optional[int]
-    name: Optional[str]
-    email: Optional[str]
-    address: Optional[str]
-    date_of_birth: Optional[date]
-    phone_number: Optional[str]
+class UserHistory(BaseHistory, table=False):
+    id: Optional[int] = -1
+    name: Optional[str] = ""
+    email: Optional[str] = ""
+    address: Optional[str] = ""
+    date_of_birth: Optional[date] = ""
+    phone_number: Optional[str] = ""
 
-    def sql_column_sequnce() -> list[str]:
+    @staticmethod
+    def get_sql_column_sequnce() -> list[str]:
         return ["id", "name", "email", "address", "date_of_birth", "phone_number"]
-
-    def user_page_squeunce() -> list[int]:
+    @staticmethod
+    def get_user_page_squeunce() -> list[int]:
         return [0, 1, 2, 3, 4, 5]
-
-    def sql_order_sequnce() -> list[int]:
-        return [0,1,2,3]
-
-    def sql_order_direction() -> list[int]:
-        return [0,1,0,0]
-
-    def sql_valid_search_columns() -> list[str]:
-        return [1, 2]
-
+    @staticmethod
+    def get_sql_order_sequnce() -> list[int]:
+        return [1,2,3]
+    @staticmethod
+    def get_sql_order_direction() -> list[int]:
+        return [0,0,0]
+    @staticmethod
+    def get_sql_valid_search_columns() -> list[str]:
+        return [1, 2,3]
+    @staticmethod
     def get_select_clause() -> list[str]:
         return """
             with result_cte as (

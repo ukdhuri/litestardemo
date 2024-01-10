@@ -6,9 +6,9 @@
     <form id="orderable" class="sortable" hx-post="/get_users3" hx-trigger="end, submit" hx-ext='json-enc' hx-target="#search-results-tbl" hx-indicator="#spinnertop">
       {% for order_clm_index in sql_order_sequnce %}
       <div class="join mr-6">
-          <button class="btn join-item btn-secondary btn-outline cursor-grab" type="button"> {{  clm_name_mapping[sql_column_sequnce[order_clm_index]] }}   <input type='hidden' name='order_list' value='{{ order_clm_index }}' />
+          <button class="btn join-item btn-secondary  cursor-grab" type="button"> {{  clm_name_mapping[sql_column_sequnce[order_clm_index]] }}   <input type='hidden' name='order_list' value='{{ order_clm_index }}' />
           </button>
-           <button class="btn join-item btn-secondary btn-outline"   type="button">
+           <button class="btn join-item btn-outline"   type="button">
             <label class="swap swap-rotate text-3xl">
               <!-- this hidden checkbox controls the state  install Orderbehaviour-->
               <input id="lchanger{{ loop.index0 }}" type="checkbox" _="install Order_Behaviour" />

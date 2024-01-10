@@ -1,3 +1,6 @@
+from enum import Enum
+
+
 clm_name_mapping = {
     'name': 'Name',
     'email': 'Email',
@@ -21,3 +24,8 @@ direction = {
 rev_direction = {
     0:1, 1:0, '0':1, '1':0
 }
+
+
+class Dilects(Enum):
+    TSQL = 1
+    MYSQL = 2

@@ -4,8 +4,9 @@
     <meta charset="UTF-8">
     <meta name="htmx-config" content='{"htmx.config.useTemplateFragments":true}'>
     <title>{{ title }}</title>
-    <link href="https://cdn.jsdelivr.net/npm/daisyui@4.4.24/dist/full.min.css" rel="stylesheet" type="text/css" />
-    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="static/output.css" rel="stylesheet" type="text/css" />
+    <!-- <link href="https://cdn.jsdelivr.net/npm/daisyui@4.4.24/dist/full.min.css" rel="stylesheet" type="text/css" /> -->
+    <!-- <script src="https://cdn.tailwindcss.com"></script>  -->
     <script src="https://unpkg.com/htmx.org@1.9.10" integrity="sha384-D1Kt99CQMDuVetoL1lrYwg5t+9QdHe7NLX/SoJYkXDFfX37iInKRy5xLSi8nO7UC" crossorigin="anonymous"></script>
     <script src="https://unpkg.com/htmx.org/dist/ext/sse.js"></script>
     <script>
@@ -16,6 +17,7 @@
     <script src="https://unpkg.com/htmx.org/dist/ext/json-enc.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.1/Sortable.min.js"></script>
     <script src="https://unpkg.com/htmx.org/dist/ext/json-enc.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/theme-change@2.0.2/index.js"></script>
 
     {% block header %}
     {% endblock %}
@@ -43,8 +45,8 @@
     </style>
     {% endblock %}
 </head>
+
 <body>
-<!-- <body  data-theme="retro"> -->
 {% block javascript %}
 {% endblock %} 
 {% block hyperscript %}

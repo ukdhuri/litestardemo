@@ -1,10 +1,14 @@
 
+import io
+from pathlib import Path
+from random import random
+import string
 from typing import Optional, Union
 from httpx import post
-from litestar import Controller, Request, Response, get
+from litestar import Controller, MediaType, Request, Response, get
 import pandas as pd
 from sqlmodel import or_, select
-from lib.service import get_recent_orders, get_users_fn, last_order_id,get_historical_result
+from lib.service import get_recent_orders, get_users_fn, last_order_id,get_historical_result,build_context
 from models import remote,History
 from sqlalchemy.ext.asyncio import AsyncSession
 from lib.util import get_todo_listX, get_all_users
@@ -19,7 +23,7 @@ from litestar.response import File
 from litestar import post
 from litestar import get
 from litestar.response import Template
-import static.constants
+import static.SConstants 
 class HomeController(Controller):
     path = "/"
 
@@ -79,20 +83,6 @@ class HomeController(Controller):
             return HTMXTemplate(
                 template_name=template, context=context, push_url=lpush_url
             )
-            # if page_number == 1 or not request.htmx:
-            #     if search_query:
-            #         template= "index.html"
-            #     else:
-            #         context["search_query"] = search_query
-            #         context["shouldusepagination"] = False
-            #         template= "fragments/tablerow.html"
-            #     return HTMXTemplate(
-            #         template_name=template, context=context, push_url=f"/home/?page_number={page_number}&page_size={page_size}"
-            #     )
-            # else:
-            #     return HTMXTemplate(
-            #             template_name="fragments/tablerow.html", context=context,
-            #     )
 
     @get(["/get_users"], sync_to_thread=False)
     async def get_users(
@@ -105,73 +95,40 @@ class HomeController(Controller):
     
 
     @get(["/get_users3"], sync_to_thread=False)
-    async def get_users_post(
+    async def get_users3(
         self,
         request: Request,
         transaction_remote: AsyncSession      
     ) ->  Template:
-        user_page_squeunce =  History.UserHistory.user_page_squeunce()
-        sql_column_sequnce = History.UserHistory.sql_column_sequnce()
-        sql_order_sequnce = History.UserHistory.sql_order_sequnce()
-        sql_order_direction = History.UserHistory.sql_order_direction()
-        achemylist = await get_historical_result(request=request, asyncsession = transaction_remote, search_query='', page_number=1, page_size=33, scalar=False, cte_select_statment=History.UserHistory.get_select_clause()
-                                  , sql_column_sequnce=sql_column_sequnce, sql_order_sequnce=sql_order_sequnce
-                                   , sql_order_direction=sql_order_direction, valid_search_columns=History.UserHistory.sql_valid_search_columns())
+        tracker=History.SearchAndOrder()
+        tracker.page_number = 1
+        lhist = History.UserHistory()
+        tracker.order_list = lhist.order_list
+        achemylist = await get_historical_result(request=request, asyncsession = transaction_remote, dilect = static.SConstants.Dilects.TSQL.name, tracker=tracker, histmodel=lhist)
         rsultlist = [History.UserHistory(**row._asdict()) for row in achemylist]
-        context = {
-            "title": "Home",
-            "result_list": rsultlist,
-            "shouldusepagination": False,
-            "user_page_squeunce": user_page_squeunce,
-            "sql_column_sequnce": sql_column_sequnce,
-            "sql_order_sequnce": sql_order_sequnce,
-            "sql_order_direction": sql_order_direction,
-            "clm_name_mapping" : static.constants.clm_name_mapping,
-            "rev_direction": static.constants.rev_direction,
-            "update_order_section"  : False
-        }
+        context = await build_context(title="History",resultlist=rsultlist,hist=lhist,data=tracker)
         return HTMXTemplate(
                 template_name='history.html', context=context
         )
     
 
 
-    
+
+
+
     @post(["/get_users3"], sync_to_thread=False)
-    async def get_users3(
+    async def get_users3_post(
         self,
         request: Request,
         transaction_remote: AsyncSession ,
         data: History.SearchAndOrder
-        # order_list: list[Union[int, str]] ,
-        # search_query: Optional[str] = "" ,
-        # page_number: Optional[int] = 1,   
-        # page_size: Optional[int] = 100, 
     ) ->  Template:
-        
-
         print(data)
-        sql_column_sequnce = History.UserHistory.sql_column_sequnce()
-        user_page_squeunce =  History.UserHistory.user_page_squeunce()
-        valid_search_columns=History.UserHistory.sql_valid_search_columns()
-
-        achemylist = await get_historical_result(request=request, asyncsession = transaction_remote, search_query=data.search_query, page_number=data.page_number, page_size=data.page_size, scalar=False, cte_select_statment=History.UserHistory.get_select_clause()
-                                  , sql_column_sequnce=sql_column_sequnce, sql_order_sequnce=data.order_sequnce
-                                   , sql_order_direction=data.order_direction, valid_search_columns=valid_search_columns)
-        rsultlist = [History.UserHistory(**row._asdict()) for row in achemylist]
-      
-        context = {
-            "title": "Home",
-            "result_list": rsultlist,
-            "shouldusepagination": False,
-            "user_page_squeunce": user_page_squeunce,
-            "sql_column_sequnce": sql_column_sequnce,
-            "sql_order_sequnce": data.order_sequnce,
-            "sql_order_direction": data.order_direction,
-            "clm_name_mapping" : static.constants.clm_name_mapping,
-            "rev_direction": static.constants.rev_direction,
-            "update_order_section"  : True,
-        }
+        achemylist = await get_historical_result(request=request, asyncsession = transaction_remote,
+                                                   scalar=False, tracker=data, histmodel=History.UserHistory)
+        rsultlist = [History.UserHistory(**row._asdict()) for row in achemylist]      
+        lhist = History.UserHistory()
+        context = await build_context(title="Home",resultlist=rsultlist,hist=lhist,data=data,update_order_section = True)
         template_name='fragments/table_and_rows.html'
         if data.page_number > 1:
             template_name='fragments/table_rows.html'
@@ -184,13 +141,38 @@ class HomeController(Controller):
             template_name=template_name,context=context,trigger_event="resetpagenumber",after="receive"
         )       
 
+    @post(["/history_download"], sync_to_thread=False)
+    async def history_download(
+        self,
+        request: Request,
+        transaction_remote: AsyncSession ,
+        data: History.SearchAndOrder
+    ) -> File:
+        lhist = History.UserHistory()
+        achemylist = await get_historical_result(request=request, asyncsession = transaction_remote,
+                                                   scalar=False, tracker=data, histmodel=History.UserHistory)
+        rsultlist = [History.UserHistory(**row._asdict()) for row in achemylist]      
+        df = pd.DataFrame.from_records(map(dict, rsultlist)).iloc[:, 1:]
+        now = datetime.now()
+        file = f'output_{now.strftime("%Y-%m-%d_%H-%M-%S%f")}.xlsx'
+        filepath=Path(Path(__file__).resolve().parent.parent, "static", file)
+        df.to_excel(filepath, index=False)
+        return File(
+            path=filepath,
+            filename=file,
+        )   
+        return HXLocation(
+            redirect_to=f"/static/{file}",  
+        )
+        return HTMXTemplate(
+            template_name=template_name,context=context,trigger_event="resetpagenumber",after="receive"
+        )
     
-    @get(path="/history_page_event")
-    async def history_page_event(self, request: HTMXRequest) -> TriggerEvent:
+    @get(path="/move_to_next_page")
+    async def move_to_next_page(self, request: HTMXRequest) -> TriggerEvent:
         return TriggerEvent(
             content="",
-            name="showMessage",
-            params={"attr": "valuexxx"},
+            name="forwardpage",
             after="swap",  # possible values 'receive', 'settle', and 'swap'
         )
 

@@ -13,45 +13,26 @@
       </div>
       <div class="flex-1 px-2 mx-2">
         <div class="flex items-center">
-          <div class="dropdown">
-            <div tabindex="0" role="button" class="btn m-1">
-              Theme
-              <svg width="12px" height="12px" class="h-2 w-2 fill-current opacity-60 inline-block"
-                xmlns="http://www.w3.org/2000/svg" viewBox="0 0 2048 2048">
-                <path d="M1799 349l242 241-1017 1017L7 590l242-241 775 775 775-775z"></path>
-              </svg>
-            </div>
-            <ul tabindex="0" class="dropdown-content z-50 p-2 shadow-2xl bg-base-300 rounded-box w-52">
-              <li><input type="radio" name="theme-dropdown"
-                  class="theme-controller btn btn-sm btn-block btn-ghost justify-start" aria-label="Default"
-                  value="default" /></li>
-              <li><input type="radio" name="theme-dropdown"
-                  class="theme-controller btn btn-sm btn-block btn-ghost justify-start" aria-label="Retro"
-                  value="retro" /></li>
-              <li><input type="radio" name="theme-dropdown"
-                  class="theme-controller btn btn-sm btn-block btn-ghost justify-start" aria-label="Cyberpunk"
-                  value="forest" /></li>
-              <li><input type="radio" name="theme-dropdown"
-                  class="theme-controller btn btn-sm btn-block btn-ghost justify-start" aria-label="Valentine"
-                  value="valentine" /></li>
-              <li><input type="radio" name="theme-dropdown"
-                  class="theme-controller btn btn-sm btn-block btn-ghost justify-start" aria-label="Aqua"
-                  value="aqua" /></li>
-            </ul>
-          </div>
+          
+        
           <div class="ml-3">
-            <h1><span> {{ title }} </span>
+            <h1><span> {{ title }} </span></h1>
           </div>
         </div>
       </div>
-      </h1>
+      
       <div class="flex-none hidden lg:block">
         <ul class="menu menu-horizontal">
           <!-- Navbar menu content here -->
           <li><a href="/home">Home</a></li>
           <li><a href="/liveorderlongpoll">Order</a></li>
-          <li><label class="cursor-pointer grid place-items-center">
-              <input type="checkbox" value="forest"
+          <li><button data-toggle-theme="cyberpunk,retro" data-act-class="ACTIVECLASS"></button></li>
+         
+
+
+
+          <!-- <li><label class="cursor-pointer grid place-items-center">
+              <input id="toogle_theme_chkbx" type="checkbox" value="forest"  data-toggle-theme="forest,retro" data-act-class="pl-4" 
                 class="toggle theme-controller bg-base-content row-start-1 col-start-1 col-span-2" />
               <svg class="col-start-2 row-start-1 stroke-base-100 fill-base-100" xmlns="http://www.w3.org/2000/svg"
                 width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
@@ -65,8 +46,64 @@
                 stroke-linecap="round" stroke-linejoin="round">
                 <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>
               </svg>
-            </label></li>
+            </label></li> -->
+            <!-- <li>
+            <div>            
+              🌲
+              <div class="inline-block w-10">
+                <span data-key="front-page" data-toggle-theme="forest,cupcake" data-act-class="pl-4" class="border rounded-full border-green-700 flex items-center cursor-pointer w-10 transition-all duration-300 ease-in-out pl-0">
+                  <span class="rounded-full w-3 h-3 m-1 bg-green-700">
+                  </span>
+                </span>
+              </div>
+              📀
+            </div> -->
+               
         </ul>
+        <div class="dropdown mr-6">
+          <div tabindex="0" role="button" class="btn m-1">
+            Theme
+            <svg width="12px" height="12px" class="h-2 w-2 fill-current opacity-60 inline-block"
+              xmlns="http://www.w3.org/2000/svg" viewBox="0 0 2048 2048">
+              <path d="M1799 349l242 241-1017 1017L7 590l242-241 775 775 775-775z"></path>
+            </svg>
+          </div>
+          <ul tabindex="0" class="dropdown-content z-50 p-2 shadow-2xl bg-base-300 rounded-box w-52">
+            <li><input type="radio" name="theme-dropdown" class="btn btn-sm btn-block btn-ghost justify-start" aria-label="Default"    value="default" data-set-theme="default" data-act-class="ACTIVECLASS" data-key="user-page"/></li>
+            <li><input type="radio" name="theme-dropdown" class="btn btn-sm btn-block btn-ghost justify-start" aria-label="🌞Light🌞"    value="light" data-set-theme="light" data-act-class="ACTIVECLASS" data-key="user-page"/></li>
+            <li><input type="radio" name="theme-dropdown" class="btn btn-sm btn-block btn-ghost justify-start" aria-label="🌑Dark🌑"       value="dark" data-set-theme="dark" data-act-class="ACTIVECLASS" data-key="user-page"/></li>
+            <li><input type="radio" name="theme-dropdown" class="btn btn-sm btn-block btn-ghost justify-start" aria-label="🧁Cupcake🧁"    value="cupcake" data-set-theme="cupcake" data-act-class="ACTIVECLASS" data-key="user-page"/></li>
+            <li><input type="radio" name="theme-dropdown" class="btn btn-sm btn-block btn-ghost justify-start" aria-label="🐝Bumblebee🐝"  value="bumblebee" data-set-theme="bumblebee" data-act-class="ACTIVECLASS" data-key="user-page"/></li>
+            <li><input type="radio" name="theme-dropdown" class="btn btn-sm btn-block btn-ghost justify-start" aria-label="Emerald"    value="emerald" data-set-theme="emerald" data-act-class="ACTIVECLASS" data-key="user-page"/></li>
+            <li><input type="radio" name="theme-dropdown" class="btn btn-sm btn-block btn-ghost justify-start" aria-label="💼Corporate💼"  value="corporate" data-set-theme="corporate" data-act-class="ACTIVECLASS" data-key="user-page"/></li>
+            <li><input type="radio" name="theme-dropdown" class="btn btn-sm btn-block btn-ghost justify-start" aria-label="🌆Synthwave🌆"  value="synthwave" data-set-theme="synthwave" data-act-class="ACTIVECLASS" data-key="user-page"/></li>
+            <li><input type="radio" name="theme-dropdown" class="btn btn-sm btn-block btn-ghost justify-start" aria-label="🕰️Retro🕰️"      value="retro" data-set-theme="retro" data-act-class="ACTIVECLASS" data-key="user-page"/></li>
+            <li><input type="radio" name="theme-dropdown" class="btn btn-sm btn-block btn-ghost justify-start" aria-label="🤖Cyberpunk🤖"  value="cyberpunk" data-set-theme="cyberpunk" data-act-class="ACTIVECLASS" data-key="user-page"/></li>
+            <li><input type="radio" name="theme-dropdown" class="btn btn-sm btn-block btn-ghost justify-start" aria-label="🌹Valentine🌹"  value="valentine" data-set-theme="valentine" data-act-class="ACTIVECLASS" data-key="user-page"/></li>
+            <li><input type="radio" name="theme-dropdown" class="btn btn-sm btn-block btn-ghost justify-start" aria-label="🎃Halloween🎃"  value="halloween" data-set-theme="halloween" data-act-class="ACTIVECLASS" data-key="user-page"/></li>
+            <li><input type="radio" name="theme-dropdown" class="btn btn-sm btn-block btn-ghost justify-start" aria-label="🌻Garden🌻"     value="garden" data-set-theme="garden" data-act-class="ACTIVECLASS" data-key="user-page"/></li>
+            <li><input type="radio" name="theme-dropdown" class="btn btn-sm btn-block btn-ghost justify-start" aria-label="🌲Forest🌲"     value="forest" data-set-theme="forest" data-act-class="ACTIVECLASS" data-key="user-page"/></li>
+            <li><input type="radio" name="theme-dropdown" class="btn btn-sm btn-block btn-ghost justify-start" aria-label="🐠Aqua🐠"       value="aqua" data-set-theme="aqua" data-act-class="ACTIVECLASS" data-key="user-page"/></li>
+            <li><input type="radio" name="theme-dropdown" class="btn btn-sm btn-block btn-ghost justify-start" aria-label="🛣️Lane🛣️"       value="lofi" data-set-theme="lofi" data-act-class="ACTIVECLASS" data-key="user-page"/></li>
+            <li><input type="radio" name="theme-dropdown" class="btn btn-sm btn-block btn-ghost justify-start" aria-label="🎨Pastel🎨"     value="pastel" data-set-theme="pastel" data-act-class="ACTIVECLASS" data-key="user-page"/></li>
+            <li><input type="radio" name="theme-dropdown" class="btn btn-sm btn-block btn-ghost justify-start" aria-label="🧙Fantasy🧙"    value="fantasy" data-set-theme="fantasy" data-act-class="ACTIVECLASS" data-key="user-page"/></li>
+            <li><input type="radio" name="theme-dropdown" class="btn btn-sm btn-block btn-ghost justify-start" aria-label="📐Wireframe📐"  value="wireframe" data-set-theme="wireframe" data-act-class="ACTIVECLASS" data-key="user-page"/></li>
+            <li><input type="radio" name="theme-dropdown" class="btn btn-sm btn-block btn-ghost justify-start" aria-label="🕶️Black🕶️"      value="black" data-set-theme="black" data-act-class="ACTIVECLASS" data-key="user-page"/></li>
+            <li><input type="radio" name="theme-dropdown" class="btn btn-sm btn-block btn-ghost justify-start" aria-label="👑Luxury👑"     value="luxury" data-set-theme="luxury" data-act-class="ACTIVECLASS" data-key="user-page"/></li>
+            <li><input type="radio" name="theme-dropdown" class="btn btn-sm btn-block btn-ghost justify-start" aria-label="🧛Dracula🧛"    value="dracula" data-set-theme="dracula" data-act-class="ACTIVECLASS" data-key="user-page"/></li>
+            <li><input type="radio" name="theme-dropdown" class="btn btn-sm btn-block btn-ghost justify-start" aria-label="📈Cmyk📈"       value="cmyk" data-set-theme="cmyk" data-act-class="ACTIVECLASS" data-key="user-page"/></li>
+            <li><input type="radio" name="theme-dropdown" class="btn btn-sm btn-block btn-ghost justify-start" aria-label="🍂Autumn🍂"     value="autumn" data-set-theme="autumn" data-act-class="ACTIVECLASS" data-key="user-page"/></li>
+            <li><input type="radio" name="theme-dropdown" class="btn btn-sm btn-block btn-ghost justify-start" aria-label="💼Business💼"   value="business" data-set-theme="business" data-act-class="ACTIVECLASS" data-key="user-page"/></li>
+            <li><input type="radio" name="theme-dropdown" class="btn btn-sm btn-block btn-ghost justify-start" aria-label="🧪Acid🧪"       value="acid" data-set-theme="acid" data-act-class="ACTIVECLASS" data-key="user-page"/></li>
+            <li><input type="radio" name="theme-dropdown" class="btn btn-sm btn-block btn-ghost justify-start" aria-label="🍋Lemonade🍋"   value="lemonade" data-set-theme="lemonade" data-act-class="ACTIVECLASS" data-key="user-page"/></li>
+            <li><input type="radio" name="theme-dropdown" class="btn btn-sm btn-block btn-ghost justify-start" aria-label="🌃Night🌃"      value="night" data-set-theme="night" data-act-class="ACTIVECLASS" data-key="user-page"/></li>
+            <li><input type="radio" name="theme-dropdown" class="btn btn-sm btn-block btn-ghost justify-start" aria-label="☕Coffee☕"     value="coffee" data-set-theme="coffee" data-act-class="ACTIVECLASS" data-key="user-page"/></li>
+            <li><input type="radio" name="theme-dropdown" class="btn btn-sm btn-block btn-ghost justify-start" aria-label="☃️Winter☃️"     value="winter" data-set-theme="winter" data-act-class="ACTIVECLASS" data-key="user-page"/></li>
+            <li><input type="radio" name="theme-dropdown" class="btn btn-sm btn-block btn-ghost justify-start" aria-label="🕯️Dim🕯️"        value="dim" data-set-theme="dim" data-act-class="ACTIVECLASS" data-key="user-page"/></li>
+            <li><input type="radio" name="theme-dropdown" class="btn btn-sm btn-block btn-ghost justify-start" aria-label="❄️Nord❄️"       value="nord" data-set-theme="nord" data-act-class="ACTIVECLASS" data-key="user-page"/></li>
+            <li><input type="radio" name="theme-dropdown" class="btn btn-sm btn-block btn-ghost justify-start" aria-label="🌄Sunset🌄S"     value="sunset" data-set-theme="sunset" data-act-class="ACTIVECLASS" data-key="user-page"/></li>
+          </ul>
+        </div>
       </div>
     </div>
     <!-- Page content here -->

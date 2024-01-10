@@ -14,4 +14,4 @@ schedule
 apscheduler
 websockets
 dbt
-
+openpyxl
