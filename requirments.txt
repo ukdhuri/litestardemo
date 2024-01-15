@@ -1,5 +1,7 @@
 sqlmodel
 uvicorn
+python-benedict
+pendulum
 aiosqlite
 aioodbc
 pandas
@@ -15,3 +17,7 @@ apscheduler
 websockets
 dbt
 openpyxl
+aiofiles
+polars[all]
+
+
