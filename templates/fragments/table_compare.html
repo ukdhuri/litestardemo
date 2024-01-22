@@ -1,0 +1,51 @@
+<select id="selected_{{side}}_db" name="selected_{{side}}_db" class="select w-full max-w-xs mt-3" hx-trigger="input changed delay:500ms" hx-post="/compt/refresh_{{side}}" hx-ext='json-enc'>
+  <option disabled selected>Select Database</option>
+  {% for db in db_names %}
+    {% if db == selected_left_db %}
+      <option selected>{{ db }}</option>
+    {% else %}
+      <option>{{ db }}</option>
+    {% endif %}
+  {% endfor %}
+</select>
+  <select id="selected_{{side}}_tbl" name="selected_{{side}}_tbl" class="select w-full max-w-xs mt-3">
+    <option disabled selected>Select Table</option>
+    {% for table in common[side].tables %}
+      <option>{{ table }}</option>
+    {% endfor %}
+  </select>
+  <div class=" w-full max-w-xs mt-3 lg:tooltip" data-tip="hello">
+    <input type="text" placeholder="Select Pivot Column or Leave Blank" class="input input-bordered w-full max-w-xs"
+      list="pivot_column_list" />
+    <datalist id="pivot_column_list">
+      <option value="Chocolate"></option>
+      <option value="Coconut"></option>
+    </datalist>
+  </div>
+
+  <select class="select w-full input-accent max-w-xs mt-3">
+    <option disabled selected>Select Date Format</option>
+    <option>YYYY-MM-DD</option>
+    <option>YYYYMMDD</option>
+    <option>MM/DD/YYYY</option>
+    <option>DD/MM/YYYY</option>
+    <option>YYYY/MM/DD</option>
+    <option>MM-DD-YYYY</option>
+    <option>DD-MM-YYYY</option>
+    <option>YYYY-DD-MM</option>
+    <option>MM/DD/YY</option>
+    <option>DD/MM/YY</option>
+    <option>YY/MM/DD</option>
+  </select>
+  <label class="form-control w-full max-w-xs">
+    <div class="label">
+      <span class="label-text">Select Pivot Date Value</span>
+      <span class="label-text-alt">Above Format Will be used</span>
+    </div>
+    <input type="date" placeholder="Additional Clause" class="input input-bordered w-full max-w-xs" />
+
+  </label>
+  <div class=" w-full max-w-xs mt-3 tooltip" data-tip="e.g.  name='abc' and age > 10">
+    <input type="text" placeholder="Additional Where Clause"
+      class="input input-bordered input-secondary w-full max-w-xs" />
+  </div>

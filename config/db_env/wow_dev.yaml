@@ -1,0 +1,6 @@
+# @package db
+dbport: 1433
+dbuser: sa
+dbserver: DESKTOP-4BUPKTF
+dbinstance: SQLEXPRESS
+basedatabase: WowDev

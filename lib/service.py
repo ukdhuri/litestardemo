@@ -1,3 +1,4 @@
+import pickle
 from typing import Optional
 from litestar import Request
 from loguru import logger
@@ -14,6 +15,8 @@ from typing import TypeVar
 from models.History import BaseHistory, SearchAndOrder
 import static.SConstants
 from litestar.response import Template
+import static.SConstants 
+from datetime import timedelta
 
 def read_sql_query(con, stmt):
     return pd.read_sql(stmt, con)
@@ -265,6 +268,29 @@ async def get_order_fn(
 
     result = await transaction_remote.execute(query)
     return result.all()
+
+
+async def get_tables_list(
+    request: Request,
+    trans: AsyncSession,
+    db_id: str, force_refresh: bool = False
+) -> list[str]:
+    
+    trd = request.app.stores.get("tempdatard")
+    tablelist_pickle = await trd.get(f"{db_id}_tables")
+    if not tablelist_pickle or force_refresh == "true":
+        context = { "t_dialect" : static.SConstants.db_dilects[db_id] , "db_name" : static.SConstants.db_names[db_id] , "schema_name" : static.SConstants.schema_names[db_id] }
+        sql_statement = Template(template_name="sql/get_tables.txt",context=context).to_asgi_response(request.app,request).body.decode("utf-8")
+        sql_statement = str(sql_statement)
+        print(sql_statement)
+        result = await trans.execute(text(str(sql_statement)))    
+        table_list = [row[0] for row in result.all()]  
+        await trd.set(f"{db_id}_tables", pickle.dumps(table_list), expires_in=timedelta(seconds=500))            
+    else:
+        table_list = pickle.loads(tablelist_pickle)
+
+    return table_list
+
 
 
 async def upsert_record(transaction_remote: AsyncSession, record: T) -> T:

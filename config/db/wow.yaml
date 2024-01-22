@@ -1,0 +1,6 @@
+appcode: wow
+password: 'xxxx'
+password_command: "echo ${.password}"
+defaults:
+  - _self_
+  - vendor: mssql

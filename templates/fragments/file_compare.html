@@ -1,0 +1,67 @@
+<div class="flex-auto flex flex-col h-dvh rounded bg-base-300 p-2 items-center ml-1">
+    <select class="select w-full max-w-xs">
+      <option disabled selected>Select Comparison Type for Right</option>
+      <option>Table</option>
+      <option>File</option>
+    </select>
+    <div class=" w-full max-w-xs mt-3 tooltip"
+      data-tip="Date placeholder are alllowed,for e.g. /abc/pqr/file_abc_YYYYMMDD.dat">
+      <input type="text" placeholder="Full File Path" class="input input-bordered input-secondary w-full max-w-xs" />
+    </div>
+    <label class="form-control w-full max-w-xs">
+      <div class="label">
+        <span class="label-text">Select Date Placeholder</span>
+        <span class="label-text-alt">optional(default current date)</span>
+      </div>
+      <input type="date" placeholder="Additional Clause" class="input input-bordered w-full max-w-xs" />
+    </label>
+    <div class="join justify-center w-full max-w-xs mt-3">
+      <input class="join-item btn" type="radio" name="options" aria-label="Delimited" />
+      <input class="join-item btn" type="radio" name="options" aria-label="Fixed Length" />
+    </div>
+    <div class=" w-full max-w-xs mt-3 tooltip" data-tip="Header will use same Seperator as file if not provided">
+      <label class="form-control w-full max-w-xs">
+        <div class="label">
+          <span class="label-text">Record Seperator</span>
+          <span class="label-text-alt">Header Record Seperator</span>
+        </div>
+        <div class="flex justify-between">
+          <input type="text" placeholder="eg. | , or ~|~" class="input input-bordered w-1/2 mr-2"
+            list="possilbe_seperators" />
+          <input type="text" placeholder="eg. | , or ~|~" class="input input-bordered w-1/2 ml-2"
+            list="possilbe_seperators" />
+        </div>
+        <datalist id="possilbe_seperators">
+          <option value=","></option>
+          <option value="|"></option>
+          <option value="~|~"></option>
+        </datalist>
+      </label>
+    </div>
+    <div class=" w-full max-w-xs mt-3 tooltip">
+      <label class="form-control w-full max-w-xs">
+        <div class="label">
+          <span class="label-text">Number of Header Lines</span>
+          <span class="label-text-alt">Number of Trailer Lines</span>
+        </div>
+        <div class="flex justify-between">
+          <input type="number" placeholder="Header Count" class="input input-bordered w-1/2 mr-2" />
+          <input type="number" placeholder="Trailer Count" class="input input-bordered w-1/2 ml-2" />
+        </div>
+        <datalist id="possilbe_seperators">
+          <option value=","></option>
+          <option value="|"></option>
+          <option value="~|~"></option>
+        </datalist>
+      </label>
+    </div>
+    <div class=" w-full max-w-xs mt-3 tooltip"
+      data-tip="Column Names will be parsed from this line if Delimited file is used, if not provided random names will be polulated">
+      <input type="number" placeholder="Column Names Line Number (optional)"
+        class="input input-bordered input-secondary w-full max-w-xs" />
+    </div>
+    <div class=" w-full max-w-xs mt-3 tooltip" data-tip="Number of Columns in fixed Length file">
+      <input type="number" placeholder="Colmn Coount (for fixed Length)"
+        class="input input-bordered input-secondary w-full max-w-xs" />
+    </div>
+    </div>

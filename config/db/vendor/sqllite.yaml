@@ -5,3 +5,4 @@ max_pool_size: 50
 driverversion: 18
 instancesep: ''
 connection_string: "${.driverprotocol}:///${..sqlite_file_name}"
+dialect: "sql"

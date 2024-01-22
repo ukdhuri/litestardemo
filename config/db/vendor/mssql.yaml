@@ -9,3 +9,4 @@ instancesep: '\'
 connection_string: "${.driverprotocol}://${..dbuser}:REPLACEME@${..dbserver}${.instancesep}${..dbinstance}/${..basedatabase}?driver=ODBC+Driver+${.driverversion}+for+SQL+Server&Encrypt=no&ssl_verify_cert=false&autocommit=true"
 #,${..dbport}
 #?driver=FreeTDS&Encrypt=no&ssl_verify_cert=false
+dialect: "tsql"

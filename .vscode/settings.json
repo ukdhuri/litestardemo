@@ -6,6 +6,23 @@
             "name": "local",
             "group": "local",
             "database": "${workspaceFolder:demo}/db/light.db"
+        },
+        {
+            "previewLimit": 50,
+            "server": "localhost",
+            "port": 5432,
+            "driver": "PostgreSQL",
+            "name": "main",
+            "database": "postgres",
+            "username": "postgres",
+            "group": "main"
+        },
+        {
+            "previewLimit": 50,
+            "driver": "SQLite",
+            "name": "light",
+            "group": "light",
+            "database": "db/light.db"
         }
     ]
 }

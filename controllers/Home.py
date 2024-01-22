@@ -110,11 +110,6 @@ class HomeController(Controller):
         return HTMXTemplate(
                 template_name='history.html', context=context
         )
-    
-
-
-
-
 
     @post(["/get_users3"], sync_to_thread=False)
     async def get_users3_post(

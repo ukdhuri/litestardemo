@@ -12,6 +12,7 @@ import controllers.Home
 import controllers.Status
 import controllers.Factory
 import controllers.SocketWeb
+import controllers.Compt
 from lib.dependencies import (
     db_remote,
     db_local,
@@ -85,7 +86,7 @@ async def testwebsocket(request: Request, channels: ChannelsPlugin) -> Response:
 
 
 app = Litestar(
-    [testwebsocket,handle_file_download,shutdown,controllers.Home.HomeController,controllers.Factory.FactoryController,controllers.SocketWeb.SocketWebController],
+    [controllers.Compt.ComptController, testwebsocket,handle_file_download,shutdown,controllers.Home.HomeController,controllers.Factory.FactoryController,controllers.SocketWeb.SocketWebController],
     static_files_config=[
         StaticFilesConfig(directories=["static"], path="/static",send_as_attachment=True,),
         

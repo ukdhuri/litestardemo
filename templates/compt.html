@@ -1,0 +1,96 @@
+{% extends 'base.html' %}
+{% block javascript %}
+<script type="text/javascript">
+
+  document.body.addEventListener("forwardpage", function (attr) {
+    var page_number_input = document.getElementById('page_number');
+    page_number_input.value = Number(page_number_input.value) + 1;
+
+    //      let element = document.getElementById('myElement');
+    // let event = new CustomEvent('myEvent', { detail: { foo: 'bar' } });
+    // element.dispatchEvent(event);
+
+    let event = new Event('nextpage');
+    page_number_input.dispatchEvent(event);
+  })
+
+
+  document.body.addEventListener("resetpagenumber", function (evt) {
+    var page_number_input = document.getElementById('page_number');
+    page_number_input.value = 1;
+  })
+
+  function addSortable(conent) {
+    var sortables = conent.querySelectorAll(".sortable");
+    for (var i = 0; i < sortables.length; i++) {
+      var sortable = sortables[i];
+      var sortableInstance = new Sortable(sortable, {
+        animation: 150,
+        ghostClass: 'blue-background-class',
+        // Make the `.htmx-indicator` unsortable
+        filter: ".htmx-indicator",
+        onMove: function (evt) {
+          return evt.related.className.indexOf('htmx-indicator') === -1;
+        },
+        // Disable sorting on the `end` event
+        onEnd: function (evt) {
+          this.option("disabled", true);
+        }
+      });
+      // Re-enable sorting on the `htmx:afterSwap` event
+
+
+      sortable.addEventListener("htmx:afterOnLoad", function () {
+        //alert('htmx:afterOnLoad')
+        //console.log(imsortableInstance)
+        sortableInstance.option("disabled", false);
+        //console.log(sortableInstance.option("disabled"))
+
+
+      });
+
+    }
+  }
+
+
+
+  htmx.onLoad(function (content) {
+    addSortable(content);
+  })
+</script>
+{% endblock %}
+
+{% block hyperscript %}
+<script type="text/hyperscript">
+  behavior Order_Behaviour
+    on change 
+      set :l1 to next <input/>
+      if value of :l1 is 0 then
+        set @value of :l1 to 1
+      else
+        set @value of :l1 to 0
+      end
+      trigger submit on #orderable
+    end
+  end
+</script>
+<!-- <script type="text/hyperscript">
+  behavior LastRowBehaviour
+    on load
+     call alert(111)
+    end
+    on intersection(intersecting) having threshold 0.9
+      set :lpn to the value of  <input#page_number/>
+      set :lpage_size to the value of <input#page_size/>
+      call alert(:lpn) then
+      call alert(:lpage_size)
+    end
+  end
+</script> -->
+
+{% endblock %}
+{% block content %}
+
+{% include 'fragments/comparator_frag.html' %}
+
+{% endblock %}

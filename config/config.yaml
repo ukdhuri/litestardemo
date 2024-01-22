@@ -3,8 +3,11 @@ logpath: '/home/deck/devlopment/demo/logs'
 defaults:
   - _self_
   - db@remote: heavy
+  - db@remote1: wow
   - env@remote: dev
+  - env@remote1: dev
   - db@local: light
   - env@local: dev
   - db_env@remote: "${db@remote}_${env@remote}"
+  - db_env@remote1: "${db@remote1}_${env@remote1}"
   - db_env@local: "${db@local}_${env@local}"
