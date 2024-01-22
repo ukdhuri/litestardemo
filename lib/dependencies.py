@@ -21,7 +21,7 @@ from lib.util import cfg
 async def db_remote(app: Litestar) -> AsyncGenerator[None, None]:
     engine_remote = getattr(app.state, "engine_remote", None)
     if engine_remote is None:
-        constr = cfg.remote.vendor.connection_string.replace("REPLACEME", "2582")
+        constr = cfg.remote.vendor.connection_string.replace("REPLACEME", "xxxx")
         app.state.remote_con_str = constr
         engine_remote = create_async_engine(constr,echo=True)
         app.state.engine_remote = engine_remote
@@ -40,7 +40,7 @@ async def db_remote(app: Litestar) -> AsyncGenerator[None, None]:
 async def db_remote1(app: Litestar) -> AsyncGenerator[None, None]:
     engine_remote = getattr(app.state, "engine_remote1", None)
     if engine_remote1 is None:
-        constr = cfg.remote.vendor.connection_string.replace("REPLACEME", "2582")
+        constr = cfg.remote.vendor.connection_string.replace("REPLACEME", "xxxx")
         app.state.remote_con_str = constr
         engine_remote1 = create_async_engine(constr,echo=True)
         app.state.engine_remote1 = engine_remote1
