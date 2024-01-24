@@ -54,3 +54,17 @@ schema_names = benedict({
     'Remote1' :  'dbo',
     'Local' : 'dbo',
 })
+
+date_formats = [
+    'YYYY-MM-DD',
+    'YYYYMMDD',
+    'MM/DD/YYYY',
+    'DD/MM/YYYY',
+    'YYYY/MM/DD',
+    'MM-DD-YYYY',
+    'DD-MM-YYYY',
+    'YYYY-DD-MM',
+    'MM/DD/YY',
+    'DD/MM/YY',
+    'YY/MM/DD'
+  ]

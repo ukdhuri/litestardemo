@@ -17,6 +17,9 @@ import static.SConstants
 from litestar.response import Template
 import static.SConstants 
 from datetime import timedelta
+import pendulum
+from datetime import date
+from icecream import ic
 
 def read_sql_query(con, stmt):
     return pd.read_sql(stmt, con)
@@ -291,7 +294,52 @@ async def get_tables_list(
 
     return table_list
 
+async def get_clean_table_name(full_name: str) -> str:
+    # split the string by the '.' character
+    parts = full_name.split('.')
+    # get the last part and remove the '[' and ']' characters
+    table_name = parts[-1].strip('[]')
+    return table_name
 
+
+def read_batch_date_file() -> date:
+    file_path: str = "/home/deck/devlopment/demo/batch_date.txt"
+    with open(file_path, 'r') as file:
+        batch_date_str = file.read().strip()
+        batch_date = pendulum.from_format(batch_date_str, 'YYYYMMDD').date()
+        return batch_date
+
+
+async def get_column_list(
+    request: Request,
+    trans: AsyncSession,
+    db_id: str,
+    table_name: str,
+    force_refresh: bool = False
+) -> list[dict[str, str]]:
+    
+    trd = request.app.stores.get("tempdatard")
+    table_clm_list_pickle = await trd.get(f"{db_id}_{table_name}_columnlist")
+    context = {}
+    if not table_clm_list_pickle or force_refresh == "true":
+        context = {
+            "t_dialect": static.SConstants.db_dilects[db_id],
+            "db_name": static.SConstants.db_names[db_id],
+            "schema_name": static.SConstants.schema_names[db_id],
+            'table_name': await get_clean_table_name(table_name)
+        }
+        sql_statement = Template(template_name="sql/get_columns.txt", context=context).to_asgi_response(request.app, request).body.decode("utf-8")
+        sql_statement = str(sql_statement)
+        print(sql_statement)
+        result = await trans.execute(text(str(sql_statement)))    
+        column_list = [{"column_name": row[0], "column_type": row[1]} for row in result.all()]  
+        await trd.set(f"{db_id}_{table_name}_columnlist", pickle.dumps(column_list), expires_in=timedelta(seconds=500))            
+    else:
+        column_list = pickle.loads(table_clm_list_pickle)
+    context['column_list'] = column_list
+    sql_statement = Template(template_name="sql/get_table_hash.txt", context=context).to_asgi_response(request.app, request).body.decode("utf-8")
+    print(sql_statement)
+    return column_list
 
 async def upsert_record(transaction_remote: AsyncSession, record: T) -> T:
     transaction_remote.add(record)

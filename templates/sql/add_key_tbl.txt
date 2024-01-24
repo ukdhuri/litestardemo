@@ -1,0 +1,16 @@
+
+{% set suffix = '_key_tmp' %}
+
+
+{% if t_dialect == 'TSQL' %}
+CREATE TABLE {{ db_name }}.{{ schema_name }}.{{ tablename + suffix }} (
+    clmid VARCHAR(330)
+);
+{% endif %}
+
+
+{% if t_dialect == 'MYSQL' %}
+CREATE TABLE {{ db_name }}.{{ tablename + suffix }} (
+    clmid VARCHAR(330)
+);
+{% endif %}

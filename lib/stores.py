@@ -18,7 +18,8 @@ response_cache_store = MemoryStore()
 # tempdatafs_store.set("foo", b"barf", expires_in=600)
 
 
-
+async def before_shutdown() -> None:
+    await tempdatard_store.delete_all()
 
 
 stores={"memory": memorystore,"root": root_store,"cache": cache_store,"sessions": session_store, "response_cache": response_cache_store,"tempdatard": tempdatard_store,"tempdatafs": tempdatafs_store}

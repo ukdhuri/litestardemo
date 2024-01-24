@@ -1,0 +1,82 @@
+{% if t_dialect == 'TSQL' %}
+SELECT 
+    CONCAT_WS('', 
+        {% for column in column_list %}
+                {%+ if column['column_type'] == 'date' %}
+                    CAST(COALESCE(FORMAT(CAST({{ column['column_name'] }} AS DATE), 'yyyy-MM-dd'), '1970-01-01') AS VARCHAR)
+                {%+ elif column['column_type'] == 'datetime' %}
+                    CAST(COALESCE(FORMAT(CAST({{ column['column_name'] }} AS DATETIME), 'yyyy-MM-ddTHH:mm:ss'), '1970-01-01 09:00') AS VARCHAR)
+                {%+ elif column['column_type'] == 'char' or column['column_type'] == 'varchar' %}
+                    COALESCE(REPLACE({{ column['column_name'] }}, 'char(0)', ''), '')
+                {%+ elif column['column_type'] == 'decimal' or column['column_type'] == 'numeric' or column['column_type'] == 'int' or column['column_type'] == 'bit' or column['column_type'] == 'real' or column['column_type'] == 'float' %}
+                    CAST(COALESCE({{ column['column_name'] }}, '0') AS VARCHAR)
+                {%+ else %}
+                    CAST({{ column['column_name'] }} AS VARCHAR)
+                {%+ endif %}
+                {%+ if not loop.last %},{% endif %}
+        {% endfor %}) AS concatenated_column,
+    SUBSTRING(master.dbo.fn_varbintohexstr(HASHBYTES('MD5', CONCAT_WS('', 
+        {% for column in column_list %}
+            {%+ if column['column_type'] == 'date' %}
+                CAST(COALESCE(FORMAT(CAST({{ column['column_name'] }} AS DATE), 'yyyy-MM-dd'), '1970-01-01') AS VARCHAR)
+            {%+ elif column['column_type'] == 'datetime' %}
+                CAST(COALESCE(FORMAT(CAST({{ column['column_name'] }} AS DATETIME), 'yyyy-MM-ddTHH:mm:ss'), '1970-01-01 09:00') AS VARCHAR)
+            {%+ elif column['column_type'] == 'char' or column['column_type'] == 'varchar' %}
+                COALESCE(REPLACE({{ column['column_name'] }}, 'char(0)', ''), '')
+            {%+ elif column['column_type'] == 'decimal' or column['column_type'] == 'numeric' or column['column_type'] == 'int' or column['column_type'] == 'bit' or column['column_type'] == 'real' or column['column_type'] == 'float' %}
+                CAST(COALESCE({{ column['column_name'] }}, '0') AS VARCHAR)
+            {%+ else %}
+                CAST({{ column['column_name'] }} AS VARCHAR)
+            {%+ endif %}
+            {%+ if not loop.last %} , {% endif %}
+        {% endfor %}
+    ))), 3, 32) AS md5_hash,
+
+{% for column in column_list %}
+{{ column['column_name'] }} {%+ if not loop.last %} , {% endif %}
+{% endfor %}
+FROM   {{ db_name }}.{{ schema_name }}.[{{ table_name }}]
+{% endif %}
+
+{% if t_dialect == 'MYSQL' %}
+SELECT 
+    CONCAT_WS('', 
+        {% for column in column_list %}
+                {%+ if column['column_type'] == 'date' %}
+                    CAST(COALESCE(DATE_FORMAT({{ column['column_name'] }}, '%Y-%m-%d'), '1970-01-01') AS CHAR)
+                {%+ elif column['column_type'] == 'datetime' %}
+                    CAST(COALESCE(DATE_FORMAT({{ column['column_name'] }}, '%Y-%m-%dT%H:%i:%s'), '1970-01-01 09:00') AS CHAR)
+                {%+ elif column['column_type'] == 'char' or column['column_type'] == 'varchar' %}
+                    COALESCE(REPLACE({{ column['column_name'] }}, 'char(0)', ''), '')
+                {%+ elif column['column_type'] == 'decimal' or column['column_type'] == 'numeric' or column['column_type'] == 'int' or column['column_type'] == 'bit' or column['column_type'] == 'real' or column['column_type'] == 'float' %}
+                    CAST(COALESCE({{ column['column_name'] }}, '0') AS CHAR)
+                {%+ else %}
+                    CAST({{ column['column_name'] }} AS CHAR)
+                {%+ endif %}
+                {%+ if not loop.last %},{% endif %}
+        {% endfor %}) AS concatenated_column,
+    MD5(CONCAT_WS('', 
+        {% for column in column_list %}
+            {%+ if column['column_type'] == 'date' %}
+                CAST(COALESCE(DATE_FORMAT({{ column['column_name'] }}, '%Y-%m-%d'), '1970-01-01') AS CHAR)
+            {%+ elif column['column_type'] == 'datetime' %}
+                CAST(COALESCE(DATE_FORMAT({{ column['column_name'] }}, '%Y-%m-%dT%H:%i:%s'), '1970-01-01 09:00') AS CHAR)
+            {%+ elif column['column_type'] == 'char' or column['column_type'] == 'varchar' %}
+                COALESCE(REPLACE({{ column['column_name'] }}, 'char(0)', ''), '')
+            {%+ elif column['column_type'] == 'decimal' or column['column_type'] == 'numeric' or column['column_type'] == 'int' or column['column_type'] == 'bit' or column['column_type'] == 'real' or column['column_type'] == 'float' %}
+                CAST(COALESCE({{ column['column_name'] }}, '0') AS CHAR)
+            {%+ else %}
+                CAST({{ column['column_name'] }} AS CHAR)
+            {%+ endif %}
+            {%+ if not loop.last %} , {% endif %}
+        {% endfor %}
+    )) AS md5_hash
+
+{% for column in column_list %}
+{{ column['column_name'] }} {%+ if not loop.last %} , {% endif %}
+{% endfor %}
+
+FROM   {{ db_name }}.`{{ table_name }}`
+{% endif %}
+
+

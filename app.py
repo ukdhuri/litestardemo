@@ -44,7 +44,7 @@ import asyncio
 from apscheduler.schedulers.asyncio   import AsyncIOScheduler
 from litestar import Litestar, get
 from litestar.response import Template
-
+from lib.stores import before_shutdown
 
 
 if TYPE_CHECKING:
@@ -54,6 +54,7 @@ async def on_startup():
     await start_scheduler(app)
 
 async def on_shutdown():
+    await before_shutdown()
     await stop_scheduler(app)
 
 @get(["/bar"], sync_to_thread=False)
@@ -86,6 +87,7 @@ async def testwebsocket(request: Request, channels: ChannelsPlugin) -> Response:
 
 
 app = Litestar(
+
     [controllers.Compt.ComptController, testwebsocket,handle_file_download,shutdown,controllers.Home.HomeController,controllers.Factory.FactoryController,controllers.SocketWeb.SocketWebController],
     static_files_config=[
         StaticFilesConfig(directories=["static"], path="/static",send_as_attachment=True,),
@@ -106,8 +108,7 @@ app = Litestar(
     ),
     debug=True,
     stores=stores,
-    plugins=[ChannelsPlugin(channels=["emoji"],backend=MemoryChannelsBackend(history=10000),arbitrary_channels_allowed=True,create_ws_route_handlers=True,ws_handler_send_history=10000)]
-
+    plugins=[ChannelsPlugin(channels=["emoji"],backend=MemoryChannelsBackend(history=10000),arbitrary_channels_allowed=True,create_ws_route_handlers=True,ws_handler_send_history=10000)],
 )
 
 

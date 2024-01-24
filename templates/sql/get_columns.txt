@@ -1,0 +1,11 @@
+{% if t_dialect == 'MYSQL' %}
+SELECT column_name, data_type
+FROM information_schema.columns
+WHERE table_schema NOT IN ('information_schema', 'mysql', 'performance_schema', 'sys')
+AND table_name = '{{ table_name }}';
+{% endif %}
+{% if t_dialect == 'TSQL' %}
+SELECT column_name, data_type
+FROM information_schema.columns
+WHERE TABLE_CATALOG = '{{ db_name }}'  AND TABLE_SCHEMA = '{{ schema_name }}' AND TABLE_NAME = '{{ table_name }}';
+{% endif %}

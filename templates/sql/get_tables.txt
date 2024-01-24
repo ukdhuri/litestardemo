@@ -1,12 +1,10 @@
 {% if t_dialect == 'MYSQL' %}
-SELECT CONCAT(table_schema, '.', table_name) AS table_name
+SELECT table_name
 FROM information_schema.tables
 WHERE table_schema NOT IN ('information_schema', 'mysql', 'performance_schema', 'sys');
 {% endif %}
 {% if t_dialect == 'TSQL' %}
-SELECT CONCAT('[' , '{{ schema_name }}' , '].[' , name , ']') AS table_name
-FROM {{ db_name }}.sys.tables
-WHERE schema_name(schema_id) = '{{ schema_name }}';
+SELECT TABLE_NAME AS table_name
+FROM information_schema.tables
+WHERE TABLE_CATALOG = '{{ db_name }}' AND table_type = 'BASE TABLE' AND TABLE_SCHEMA = '{{ schema_name }}';
 {% endif %}
-
-

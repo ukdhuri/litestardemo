@@ -1,12 +1,12 @@
-<div class="flex flex-col p-2" id="comparetwo" hx-target="#comparetwo" hx-indicator="#spinnerbar"  hx-include="[name='left_obj_type'] , [name='right_obj_type'], [name='selected_left_db'], [name='selected_right_db'], [name='selected_right_tbl'], [name='selected_right_tbl']"
+<div class="flex flex-col p-2" id="comparetwo" hx-target="#comparetwo" hx-indicator="#spinnerbar"  hx-include="[name='left_obj_type'] , [name='right_obj_type'], [name='left_db'], [name='right_db'], [name='left_tbl'], [name='right_tbl'] , [name='left_pivot_choice'], [name='right_pivot_choice']  , [name='left_pivot_column'], [name='right_pivot_column'] , [name='left_pivot_format'], [name='right_pivot_format']"
   hx-headers='{"CLIENT_SESSION_ID": "{{ CLIENT_SESSION_ID }}"}'>
 
-  <div class="artboard-demo artboard-horizontal bg-base-300 p-3">Compare Two Object<span id="spinnerbar" class="my-indicator loading loading-spinner loading-lg"></span></div>
+  <div class="artboard-demo artboard-horizontal bg-base-300 p-3 flex flex-row"><div class="p-3">Compare Two Objects</div><span id="spinnerbar" class="my-indicator loading loading-spinner loading-lg"></span></div>
 
-  <div class="flex sm:flex-row w-dvw flex-col px-2 mt-2">
+  <div class="flex sm:flex-row flex-col px-2 mt-2">
 
-    <div class="flex-auto flex flex-col h-dvh rounded bg-base-300 p-2 items-center mr-1">
-      <select class="select w-full max-w-xs" name="left_obj_type" hx-trigger="input changed delay:500ms" hx-post="/compt/refresh_left" hx-ext='json-enc'>
+    <div class="flex-auto flex flex-col rounded bg-base-300 p-2 items-center mr-1">
+      <select class="select w-full max-w-xs" name="left_obj_type" hx-trigger="input changed delay:500ms" hx-post="/compt/refresh_both" hx-ext='json-enc'>
         {% for key, value in main_compare_types.items() %}
         {% if value == t_compare_objects.left_obj_type %}
         <option selected>{{ value }}</option>
@@ -24,9 +24,8 @@
       {% endif %}
       {% endif %}
     </div>
-    <div class="flex-auto flex flex-col h-dvh rounded bg-base-300 p-2 items-center mr-1">
-      <select class="select w-full max-w-xs" name="right_obj_type" hx-trigger="input changed delay:500ms"
-        hx-post="/compt/refresh_right" hx-ext='json-enc'>
+    <div class="flex-auto flex flex-col rounded bg-base-300 p-2 items-center mr-1">
+      <select class="select w-full max-w-xs" name="right_obj_type" hx-trigger="input changed delay:500ms" hx-post="/compt/refresh_both" hx-ext='json-enc'>
         {% for key, value in main_compare_types.items() %}
         {% if value == t_compare_objects.right_obj_type %}
         <option selected>{{ value }}</option>
@@ -40,9 +39,16 @@
       {% with side='right' %}
       {% include 'fragments/table_compare.html' %}
       {% endwith %}
+      
       {% endif %}
       {% endif %}
     </div>
   </div>
 
+
+  <div class="artboard-demo artboard-horizontal bg-base-300 p-3 mt-3"></div>
+
+
 </div>
+
+

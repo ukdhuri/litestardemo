@@ -88,12 +88,16 @@ async def scheduled_puiblisher(app,scheduler):
 
 
 async def start_scheduler(app):
+    return
+
     scheduler = AsyncIOScheduler()
     scheduler.add_job(scheduled_puiblisher, 'date', run_date=datetime.now() + timedelta(seconds=3), args=[app,scheduler])
     scheduler.start()
     app.state['scheduler'] = scheduler
 
 async def stop_scheduler(app):
+    return
+
     if 'scheduler' in app.state:
         scheduler = app.state['scheduler']
         logger.debug(f"{len(scheduler.get_jobs())} {app.state['remote_con_str']}  👌👌👌👌")
