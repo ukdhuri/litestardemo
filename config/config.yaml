@@ -6,7 +6,7 @@ defaults:
   - db@remote1: wow
   - env@remote: dev
   - env@remote1: dev
-  - db@local: light
+  - db@local: savefile
   - env@local: dev
   - db_env@remote: "${db@remote}_${env@remote}"
   - db_env@remote1: "${db@remote1}_${env@remote1}"

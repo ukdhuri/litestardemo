@@ -1,0 +1,6 @@
+appcode: savefile
+password: 'xxxx'
+password_command: "echo ${password}"
+defaults:
+  - _self_
+  - vendor: sqllite

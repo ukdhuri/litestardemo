@@ -1,3 +1,4 @@
+import json
 import queue
 import subprocess
 from typing import Optional
@@ -17,6 +18,7 @@ from sqlalchemy.exc import IntegrityError, NoResultFound
 from litestar.exceptions import ClientException, NotFoundException,InternalServerException
 from litestar.status_codes import HTTP_409_CONFLICT
 from typing import TypeVar
+from typing import List
 
 initialize_config_dir(version_base=None, config_dir=f"{os.getcwd()}/config", job_name="demo")
 cfg = compose(config_name="config")
@@ -96,3 +98,33 @@ async def get_all_users(session: AsyncSession) -> list[remote.User]:
 async def getemoji() -> str:
     fake = Faker()
     return fake.emoji()
+
+
+def list_to_string(lst : List[str]) -> str:
+    if not lst or len(lst) == 0:
+        return ''
+    return ','.join(str(item) for item in lst)
+
+def string_to_list(string: str) -> List[str]:
+    if not string or len(string) == 0:
+        return []
+    if ',' not in string:
+        return [string]
+    return string.split(',')
+
+def list_to_json(lst : List[str]) -> str:
+    if not lst or len(lst) == 0:
+        return '[]'
+    return json.dumps(lst)
+
+def json_to_list(string: str) -> List[str]:
+    if not string or len(string) == 0:
+        return []
+    return json.loads(string)
+
+
+def check_three_vars(a, b, c):
+    if (a == '' and b == '' and c == '') or (a != '' and b != '' and c != ''):
+        return True
+    else:
+        return False

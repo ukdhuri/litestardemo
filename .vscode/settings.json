@@ -23,6 +23,13 @@
             "name": "light",
             "group": "light",
             "database": "db/light.db"
+        },
+        {
+            "previewLimit": 50,
+            "driver": "SQLite",
+            "name": "svefiledb",
+            "database": "${workspaceFolder:demo}/db/savefile.db",
+            "group": "svefiledb"
         }
     ]
 }

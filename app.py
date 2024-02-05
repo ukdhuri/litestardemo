@@ -45,6 +45,7 @@ from apscheduler.schedulers.asyncio   import AsyncIOScheduler
 from litestar import Litestar, get
 from litestar.response import Template
 from lib.stores import before_shutdown
+from litestar.middleware.session.server_side import ServerSideSessionConfig
 
 
 if TYPE_CHECKING:
@@ -107,6 +108,7 @@ app = Litestar(
         engine=JinjaTemplateEngine,
     ),
     debug=True,
+    middleware=[ServerSideSessionConfig().middleware],
     stores=stores,
     plugins=[ChannelsPlugin(channels=["emoji"],backend=MemoryChannelsBackend(history=10000),arbitrary_channels_allowed=True,create_ws_route_handlers=True,ws_handler_send_history=10000)],
 )

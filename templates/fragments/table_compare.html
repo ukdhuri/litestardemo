@@ -1,5 +1,11 @@
-<select id="{{side}}_db" name="{{side}}_db" class="select w-full max-w-xs mt-3"
-  hx-trigger="input changed delay:500ms" hx-post="/compt/refresh_both" hx-ext='json-enc'>
+<label class="form-control w-full max-w-xs  mt-3">
+  <div class="label">
+    <span class="label-text">Databa se In {{side}} Side</span>
+  </div>
+</label>
+
+<select id="{{side}}_db" name="{{side}}_db" class="select w-full max-w-xs"
+  hx-trigger="input changed delay:500ms" hx-post="/compt/refresh_both"  hx-ext='json-enc' >
   <option disabled selected>Select Database</option>
   {% for db in db_names %}
   {% if db == common[side].db %}
@@ -9,7 +15,14 @@
   {% endif %}
   {% endfor %}
 </select>
-<select id="{{side}}_tbl" name="{{side}}_tbl" class="select w-full max-w-xs mt-3"
+
+<label class="form-control w-full max-w-xs  mt-3">
+  <div class="label">
+    <span class="label-text">Table In {{side}} Side</span>
+  </div>
+</label>
+
+<select id="{{side}}_tbl" name="{{side}}_tbl" class="select w-full max-w-xs"
   hx-trigger="input changed delay:500ms" hx-post="/compt/refresh_both" hx-ext='json-enc'>
   <option disabled selected>Select Table</option>
   {% for table in common[side].tables %}
@@ -20,7 +33,13 @@
   {% endif %}
   {% endfor %}
 </select>
-<div class=" w-full max-w-xs mt-3 lg:tooltip" data-tip="hello">
+<label class="form-control w-full max-w-xs  mt-3">
+  <div class="label">
+    <span class="label-text">Pivot Column (optional)</span>
+  </div>
+</label>
+
+<div class=" w-full max-w-xs lg:tooltip" data-tip="hello">
   <input type="text" placeholder="Select Pivot Column or Leave Blank" class="input input-bordered w-full max-w-xs" name="{{side}}_pivot_column" id="{{side}}_pivot_column" value="{{ common[side].pivot_column }}"
     list="{{side}}_pivot_column_list" />
   <datalist id="{{side}}_pivot_column_list">
@@ -30,7 +49,13 @@
   </datalist>
 </div>
 
-<select class="select w-full input-accent max-w-xs mt-3" name="{{side}}_pivot_format" id="{{side}}_pivot_format" value="{{ common[side].pivot_format }}">
+<label class="form-control w-full max-w-xs  mt-3">
+  <div class="label">
+    <span class="label-text">Pivot Date Format</span>
+  </div>
+</label>
+
+<select class="select w-full input-accent max-w-xs" name="{{side}}_pivot_format" id="{{side}}_pivot_format" value="{{ common[side].pivot_format }}">
   <option disabled selected>Select Date Format</option>
   {% for date_format in date_formats %}
   {% if date_format == common[side].pivot_format %}
@@ -54,10 +79,10 @@
   <input class="join-item btn" type="radio" name="{{side}}_pivot_choice" value="Custom" aria-label="Custom 📅"  {% if 'Custom' == common[side].pivot_choice %} checked {% endif %}/>
 </div>
 {% if 'Custom' == common[side].pivot_choice %}
-<input type="date" class="input input-bordered w-full max-w-xs mt-3" />
+<input type="date" class="input input-bordered w-full max-w-xs mt-3" value="{{ common[side].custom_pivot_value }}" name="{{side}}_custom_pivot_value" id="{{side}}_custom_pivot_value" />
 {% endif %}
 
 <div class=" w-full max-w-xs mt-3 tooltip" data-tip="e.g.  name='abc' and age > 10">
-  <input type="text" placeholder="Additional Where Clause"
+  <input type="text" placeholder="Additional Where Clause" value="{{ common[side].where_clause }}" name="{{side}}_where_clause" id="{{side}}_where_clause"
     class="input input-bordered input-secondary w-full max-w-xs" />
 </div>

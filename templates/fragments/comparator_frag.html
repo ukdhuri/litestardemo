@@ -1,54 +1,87 @@
-<div class="flex flex-col p-2" id="comparetwo" hx-target="#comparetwo" hx-indicator="#spinnerbar"  hx-include="[name='left_obj_type'] , [name='right_obj_type'], [name='left_db'], [name='right_db'], [name='left_tbl'], [name='right_tbl'] , [name='left_pivot_choice'], [name='right_pivot_choice']  , [name='left_pivot_column'], [name='right_pivot_column'] , [name='left_pivot_format'], [name='right_pivot_format']"
-  hx-headers='{"CLIENT_SESSION_ID": "{{ CLIENT_SESSION_ID }}"}'>
+{% if toastmessage %}
+<div class="toast toast-top toast-end z-50" _="on load wait 3s then transition opacity to 0 then remove me">
+  <div class="alert alert-warning">
+    <span>{{ toastmessage|safe }}</span>
+  </div>
+</div>
+{% endif %}
+<form
+id="maincontent"
+hx-target="#comparetwo" hx-indicator="#spinnerbar" hx-include="[name='left_obj_type'] , [name='right_obj_type'], [name='left_db'], [name='right_db'], [name='left_tbl'], [name='right_tbl'] , [name='left_pivot_choice'], [name='right_pivot_choice']  , [name='left_pivot_column'], [name='right_pivot_column'] , [name='left_pivot_format'], [name='right_pivot_format'], [name='left_where_clause'], [name='right_where_clause'], [name='left_custom_pivot_value'], [name='right_custom_pivot_value']" hx-headers='{"CLIENT_SESSION_ID": "{{ CLIENT_SESSION_ID }}"}'
+>
+<div class="flex flex-col p-2" id="comparetwo" >
 
-  <div class="artboard-demo artboard-horizontal bg-base-300 p-3 flex flex-row"><div class="p-3">Compare Two Objects</div><span id="spinnerbar" class="my-indicator loading loading-spinner loading-lg"></span></div>
+  <div class="artboard-demo artboard-horizontal bg-base-300 p-3 flex flex-row justify-between">
 
-  <div class="flex sm:flex-row flex-col px-2 mt-2">
-
-    <div class="flex-auto flex flex-col rounded bg-base-300 p-2 items-center mr-1">
-      <select class="select w-full max-w-xs" name="left_obj_type" hx-trigger="input changed delay:500ms" hx-post="/compt/refresh_both" hx-ext='json-enc'>
-        {% for key, value in main_compare_types.items() %}
-        {% if value == t_compare_objects.left_obj_type %}
-        <option selected>{{ value }}</option>
-        {% else %}
-        <option {% if loop.first %}disabled{% endif %}>{{ value }}</option>
-        {% endif %}
-        {% endfor %}
-      </select>
-      {% if t_compare_objects.left_obj_type %}
-      {% if t_compare_objects.left_obj_type=="Table" %}
-      {% with side='left' %}
-      {% include 'fragments/table_compare.html' %}
-      {% endwith %}
-      
-      {% endif %}
-      {% endif %}
-    </div>
-    <div class="flex-auto flex flex-col rounded bg-base-300 p-2 items-center mr-1">
-      <select class="select w-full max-w-xs" name="right_obj_type" hx-trigger="input changed delay:500ms" hx-post="/compt/refresh_both" hx-ext='json-enc'>
-        {% for key, value in main_compare_types.items() %}
-        {% if value == t_compare_objects.right_obj_type %}
-        <option selected>{{ value }}</option>
-        {% else %}
-        <option {% if loop.first %}disabled{% endif %}>{{ value }}</option>
-        {% endif %}
-        {% endfor %}
-      </select>
-      {% if t_compare_objects.right_obj_type %}
-      {% if t_compare_objects.right_obj_type=="Table" %}
-      {% with side='right' %}
-      {% include 'fragments/table_compare.html' %}
-      {% endwith %}
-      
-      {% endif %}
-      {% endif %}
+    <div class="p-3">Compare Two Objects</div>
+    <span id="spinnerbar" class="my-indicator loading loading-spinner loading-lg"></span>
+    <div class="flex flex-row mr-2">
+      <div class="flex-auto lg:tooltip  mr-3" data-tip="Select Config from list of configs or Type a new name to save configuration with that Name">
+        <input type="text" placeholder="Select Existing Config or Create New One" class="input input-bordered" name="config_name" id="config_name" value=""
+          list="config_list" />
+        <datalist id="config_list">
+          <option value="ssssss"></option>        
+        </datalist>
+       
+      </div>
+      <button class="btn btn-active btn-primary"  hx-post="/compt/saveconfig" hx-ext='json-enc'>Save configuration</button>
     </div>
   </div>
+  <div class="flex sm:flex-row flex-col px-2 mt-2">
+    <div class="flex-auto flex flex-col rounded bg-base-300 p-2 items-center mr-1">
+      <select class="select w-full max-w-xs" name="left_obj_type" hx-trigger="input changed delay:500ms" hx-post="/compt/refresh_both" hx-ext='json-enc'> {% for key, value in main_compare_types.items() %} {% if value == t_compare_objects.left_obj_type %} <option selected>{{ value }}</option> {% else %} <option {% if loop.first %}disabled{% endif %}>{{ value }}</option> {% endif %} {% endfor %} </select> {% if t_compare_objects.left_obj_type %} {% if t_compare_objects.left_obj_type=="Table" %} {% with side='left' %} {% include 'fragments/table_compare.html' %} {% endwith %} {% endif %} {% endif %}
+    </div>
+    <div class="flex-auto flex flex-col rounded bg-base-300 p-2 items-center mr-1">
+      <select class="select w-full max-w-xs" name="right_obj_type" hx-trigger="input changed delay:500ms" hx-post="/compt/refresh_both" hx-ext='json-enc'> {% for key, value in main_compare_types.items() %} {% if value == t_compare_objects.right_obj_type %} <option selected>{{ value }}</option> {% else %} <option {% if loop.first %}disabled{% endif %}>{{ value }}</option> {% endif %} {% endfor %} </select> {% if t_compare_objects.right_obj_type %} {% if t_compare_objects.right_obj_type=="Table" %} {% with side='right' %} {% include 'fragments/table_compare.html' %} {% endwith %} {% endif %} {% endif %}
+    </div>
+  </div>
+  <div class="artboard-demo artboard-horizontal bg-base-300 p-3 mt-3">
+
+    
+    {% if t_compare_objects.left_tbl and t_compare_objects.right_tbl and t_compare_objects.left_tbl !="Select Table" and t_compare_objects.right_tbl != "Select Table" and  common_columns|length > 0 %}
+    <p> {{ t_compare_objects.left_tbl }} </p>
+    <p>{{ t_compare_objects.right_tbl }}</p>
+    <div class="flex flex-col justify-center">
+      <div class="p-3  flex-auto">Non matching column names are excluded from the comparison by default in Table to Table Comparison, if you are want to use match different column names please use cte option and then write select statement to match the column names using alias. </div>
+      <div class="flex-1 w-64 self-center">
+        <table class="table">
+          <!-- head -->
+          <thead>
+            <tr>
+              <th>
+                <label></label>
+              </th>
+              <th>Select to exclude from comparison</th>
+            </tr>
+          </thead>
+          <tbody>
+            <!-- row 1 -->
+            {% for column in  common_columns %}
+              <tr>
+                <th>
+                  <label>
+                    <input type="checkbox" name="exclm_{{ column }}" class="checkbox" {% if column in column_to_exclude %}checked{% endif %}>
+                  </label>
+                </th>
+                <td>{{ column }}</td>
+              </tr>
+            {% endfor %}
+          </tbody>
+          <!-- foot -->
+          <tfoot>
+            <tr>
+              <th></th>
+              <th>Select to exclude from comparison</th>
+            </tr>
+          </tfoot>
+        </table>
 
 
-  <div class="artboard-demo artboard-horizontal bg-base-300 p-3 mt-3"></div>
-
+      </div>
+    </div>
+    {% endif %}
+  
+  </div>
 
 </div>
-
-
+</form>
