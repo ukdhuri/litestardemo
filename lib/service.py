@@ -439,6 +439,13 @@ async def process_compare_post(
         key.replace("exclm_", "") for key in bdata.keys() if key.startswith("exclm_")
     ]
     ic(column_to_exclude)
+    unique_columns = []
+    unique_columns = [
+        key.replace("unq_", "") for key in bdata.keys() if key.startswith("unq_")
+    ]
+
+
+
     force_refresh = False
     if not request.session.get("CLIENT_SESSION_ID"):
         request.session["CLIENT_SESSION_ID"] = CLIENT_SESSION_ID
@@ -448,6 +455,7 @@ async def process_compare_post(
     ic(bdata)
     data_compare = TCompareModel(**bdata)
     data_compare.columns_to_exclude_str = list_to_json(column_to_exclude)
+    data_compare.unique_columns_str = list_to_json(unique_columns)
     ic(data_compare)
     for t_types in TComareTypes:
         main_compare_types[t_types.name] = t_types.value
@@ -563,7 +571,9 @@ async def process_compare_post(
     benecontext["date_formats"] = static.SConstants.date_formats
     benecontext["db_names"] = static.SConstants.db_names.keys()
     benecontext["common_columns"] = data_compare.common_columns
-    benecontext["column_to_exclude"] = column_to_exclude
+    benecontext["column_to_exclude"] = data_compare.columns_to_exclude
+    benecontext["unique_columns"] = data_compare.unique_columns
+
     benecontext["t_compare_objects"] = dict(data_compare)
     benecontext["common.left.db"] = data_compare.left_db
     benecontext["common.right.db"] = data_compare.right_db
@@ -577,6 +587,7 @@ async def process_compare_post(
     benecontext["common.right.pivot_format"] = data_compare.right_pivot_format
     benecontext["common.left.where_clause"] = data_compare.left_where_clause
     benecontext["common.right.where_clause"] = data_compare.right_where_clause
+
     if str(type(data_compare.left_custom_pivot_value))== "<class 'pendulum.datetime.DateTime'>":
         benecontext["common.left.custom_pivot_value"] = data_compare.left_custom_pivot_value.to_date_string()
     else:

@@ -43,15 +43,22 @@ class TCompareModel(SQLModel, table=True):
     common_columns_str : str = Field(default='', description="Common Columns")
     columns_to_exclude_str : str = Field(default='', description="Columns to Exclude")
 
+    unique_columns_str : str = Field(default='', description="Unique Columns")
+
     @computed_field
     @property
-    def common_columns(self) -> Optional[list[int]]:
+    def common_columns(self) -> Optional[list[str]]:
         return json_to_list(self.common_columns_str)
     
     @computed_field
     @property
-    def columns_to_exclude(self) -> Optional[list[int]]:
+    def columns_to_exclude(self) -> Optional[list[str]]:
         return json_to_list(self.columns_to_exclude_str)
+    
+    @computed_field
+    @property
+    def unique_columns(self) -> Optional[list[str]]:
+        return json_to_list(self.unique_columns_str)
     
     @validator('left_db')
     def validate_left_db(cls, value):
