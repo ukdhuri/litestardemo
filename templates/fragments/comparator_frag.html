@@ -44,14 +44,15 @@ hx-target="#comparetwo" hx-indicator="#spinnerbar" hx-include="[name='left_obj_t
     <div class="flex flex-col justify-center">
       <div class="p-3  flex-auto">Non matching column names are excluded from the comparison by default in Table to Table Comparison, if you are want to use match different column names please use cte option and then write select statement to match the column names using alias. </div>
       <div class="flex-1 w-64 self-center flex flex-row">
-        <table class="table mr-3">
+
+        <table class="table">
           <!-- head -->
           <thead>
             <tr>
               <th>
                 <label></label>
               </th>
-              <th>Select columns that will form unique key</th>s
+              <th>Select to exclude from comparison</th>
             </tr>
           </thead>
           <tbody>
@@ -60,7 +61,7 @@ hx-target="#comparetwo" hx-indicator="#spinnerbar" hx-include="[name='left_obj_t
               <tr>
                 <th>
                   <label>
-                    <input type="checkbox" name="uniqkey_{{ column }}" class="checkbox" {% if column in unique_columns %}checked{% endif %}>
+                    <input type="checkbox" name="uniqclm_{{ column }}" class="checkbox" {% if column in unique_columns %}checked{% endif %}>
                   </label>
                 </th>
                 <td>{{ column }}</td>
@@ -71,11 +72,10 @@ hx-target="#comparetwo" hx-indicator="#spinnerbar" hx-include="[name='left_obj_t
           <tfoot>
             <tr>
               <th></th>
-              <th>Select columns that will form unique key</th>
+              <th>Select to exclude from comparison</th>
             </tr>
           </tfoot>
         </table>
-
         <table class="table">
           <!-- head -->
           <thead>

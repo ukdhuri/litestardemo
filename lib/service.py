@@ -441,7 +441,7 @@ async def process_compare_post(
     ic(column_to_exclude)
     unique_columns = []
     unique_columns = [
-        key.replace("unq_", "") for key in bdata.keys() if key.startswith("unq_")
+        key.replace("uniqclm_", "") for key in bdata.keys() if key.startswith("uniqclm_")
     ]
 
 
