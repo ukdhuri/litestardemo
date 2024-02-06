@@ -12,7 +12,8 @@ from litestar.datastructures import State
 from hydra import compose, initialize_config_dir
 from models import local
 import os
-from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
+from sqlalchemy.ext.asyncio  import AsyncSession
+from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 from models import remote
 from sqlalchemy.exc import IntegrityError, NoResultFound
 from litestar.exceptions import ClientException, NotFoundException,InternalServerException
@@ -124,7 +125,7 @@ def json_to_list(string: str) -> List[str]:
 
 
 def check_three_vars(a, b, c):
-    if (a == '' and b == '' and c == '') or (a != '' and b != '' and c != ''):
+    if (a == '' and b == '' and (c == '' or c == 'Select Date Format') ) or (a != '' and b != '' and (c != 'Select Date Format' or c!= ''))  :
         return True
     else:
         return False

@@ -22,7 +22,7 @@
   </div>
 </label>
 
-<select id="{{side}}_tbl" name="{{side}}_tbl" class="select w-full max-w-xs"
+<!-- <select id="{{side}}_tbl" name="{{side}}_tbl" class="select w-full max-w-xs"
   hx-trigger="input changed delay:500ms" hx-post="/compt/refresh_both" hx-ext='json-enc'>
   <option disabled selected>Select Table</option>
   {% for table in common[side].tables %}
@@ -32,7 +32,18 @@
   <option>{{ table }}</option>
   {% endif %}
   {% endfor %}
-</select>
+</select> -->
+
+<div class=" w-full max-w-xs lg:tooltip" data-tip="Select Table On Left Side">
+  <input type="text" placeholder="Select Table" class="input input-bordered w-full max-w-xs" name="{{side}}_tbl" id="{{side}}_tbl" value="{{ common[side].tbl }}"
+    list="{{side}}_table_list" hx-trigger="input changed delay:500ms" hx-post="/compt/refresh_both" hx-ext='json-enc'/>
+  <datalist id="{{side}}_table_list">
+    {% for table in common[side].tables %}
+    <option value="{{ table }}"></option>
+    {% endfor %}
+  </datalist>
+</div>
+
 <label class="form-control w-full max-w-xs  mt-3">
   <div class="label">
     <span class="label-text">Pivot Column (optional)</span>

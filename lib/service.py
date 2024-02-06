@@ -8,9 +8,11 @@ from sqlalchemy import text
 from sqlmodel import or_, select
 from lib.util import T, list_to_string,list_to_json,check_three_vars
 from models import remote
-from sqlalchemy.ext.asyncio import AsyncSession
-from sqlmodel import select, and_
+#sqlalchemy.ext.asyncio
+from sqlalchemy.ext.asyncio  import AsyncSession
+from sqlmodel import select, and_,Session
 from datetime import date
+from sqlmodel import  create_engine
 import copy
 from typing import TypeVar
 from models.History import BaseHistory, SearchAndOrder
@@ -22,7 +24,14 @@ from datetime import timedelta
 import pendulum
 from datetime import date
 from icecream import ic
-
+from bokeh.plotting import figure, show
+from bokeh.palettes import Category20c
+from bokeh.transform import cumsum
+from bokeh.io import output_notebook
+from bokeh.models import ColumnDataSource
+from bokeh.embed import components
+from bokeh.io import curdoc
+from bs4 import BeautifulSoup
 
 def read_sql_query(con, stmt):
     return pd.read_sql(stmt, con)
@@ -285,6 +294,106 @@ async def get_order_fn(
     result = await transaction_remote.execute(query)
     return result.all()
 
+async def plot_pie_chart(inputdataset,idkey="process_id", statuskey='process_status'):
+    dataset = pd.DataFrame.from_records(map(dict, inputdataset)).iloc[:, 1:]
+    # Create a dictionary to map the status to a color
+    colors = {'Completed': 'green', 'Failed': 'red', 'In Progress': 'orange'}
+    # Group the dataset by status
+    data = dataset.groupby(statuskey).count().reset_index()
+    # Add a column for the angle of each wedge
+    data['angle'] = data[idkey]/data[idkey].sum() * 2*3.14
+    # Add a column for the color of each wedge
+    data['color'] = [colors[x] for x in data[statuskey]]
+    # Create a ColumnDataSource object
+    source = ColumnDataSource(data)
+    # Create a figure object
+    plot = figure(height=350, title="Job Status", toolbar_location=None,
+    tools="hover", tooltips="@process_status: @process_id")
+    # Add the wedges to the plot
+    plot.wedge(x=0, y=1, radius=0.4,
+    start_angle=cumsum('angle', include_zero=True),
+    end_angle=cumsum('angle'),
+    line_color="white", fill_color='color', legend_field='process_status', source=source)
+    # Remove the axis labels and grid lines
+    plot.axis.axis_label = None
+    plot.axis.visible = False
+    plot.grid.grid_line_color = None
+    curdoc().theme = 'dark_minimal'
+    plot.background_fill_color = "white"
+    plot.background_fill_alpha = 0
+    plot.min_border_left = 1
+    plot.min_border_right = 1
+    plot.plot.min_border_top = 1
+    plot.min_border_bottom = 1
+    plot.border_fill_color = "white"
+    plot.border_fill_alpha =  0
+    plot.outline_line_width = 7
+    plot.outline_line_width = 7
+    plot.outline_line_alpha = 0
+    plot.outline_line_color = "white"
+    return components(plot)
+    # Show the plot
+
+
+async def plot_pie_chartX(inputdataset,idkey="process_id", statuskey='process_status', colors = {'Completed': 'green', 'Failed': 'red', 'In Progress': 'orange'}):
+    dataset = pd.DataFrame.from_records(map(dict, inputdataset)).iloc[:, 1:]
+    # Create a dictionary to map the status to a color
+    #colors = {'Completed': 'green', 'Failed': 'red', 'In Progress': 'orange'}
+    # Group the dataset by status
+    data = dataset.groupby(statuskey).count().reset_index()
+    # Add a column for the angle of each wedge
+    data['angle'] = data[idkey]/data[idkey].sum() * 2*3.14
+    # Add a column for the color of each wedge
+    data['color'] = [colors[x] for x in data[statuskey]]
+    # Create a ColumnDataSource object
+    source = ColumnDataSource(data)
+    # Create a figure object
+    plot = figure(height=350, title="Job Status", toolbar_location=None,
+    tools="hover", tooltips=f"@{statuskey}: @{idkey}")
+    # Add the wedges to the plot
+    plot.wedge(x=0, y=1, radius=0.4,
+    start_angle=cumsum('angle', include_zero=True),
+    end_angle=cumsum('angle'),
+    line_color="white", fill_color='color', legend_field=statuskey, source=source)
+    # Remove the axis labels and grid lines
+    plot.axis.axis_label = None
+    plot.axis.visible = False
+    plot.grid.grid_line_color = None
+    curdoc().theme = 'dark_minimal'
+    plot.background_fill_color = "white"
+    plot.background_fill_alpha = 0
+    plot.min_border_left = 1
+    plot.min_border_right = 1
+    plot.plot.min_border_top = 1
+    plot.min_border_bottom = 1
+    plot.border_fill_color = "white"
+    plot.border_fill_alpha =  0
+    plot.outline_line_width = 7
+    plot.outline_line_alpha = 0
+    plot.outline_line_color = "white"
+    plot.legend.background_fill_alpha = 0.0
+    script, div = components(plot)
+    soup = BeautifulSoup(div, 'html.parser')
+    div_tag = soup.find('div')
+
+    id_value = div_tag['id']
+    data_root_id_value = div_tag['data-root-id']
+    script = script.replace(data_root_id_value, "p0006")
+    script = script.replace(id_value, "histplotguid")
+    return script,div
+    # Show the plot
+
+def get_sesssion_for_transaction(dbid : str = "Remote",transaction_remote: AsyncSession = None,transaction_remote1: AsyncSession = None,transaction_local: AsyncSession= None):
+    if dbid.lower() == "remote":
+        return transaction_remote
+    elif dbid.lower() == "remote1":
+        return transaction_remote1
+    elif dbid.lower() == "local":
+        return transaction_local
+    elif dbid.lower() == "savefile":
+        return transaction_local
+
+
 
 async def get_tables_list(
     request: Request, trans: AsyncSession, db_id: str, force_refresh: bool = False
@@ -404,24 +513,88 @@ async def get_column_list(
     else:
         column_list = pickle.loads(table_clm_list_pickle)
     context["column_list"] = column_list
-    sql_statement = (
-        Template(template_name="sql/get_table_hash.txt", context=context)
-        .to_asgi_response(request.app, request)
-        .body.decode("utf-8")
-    )
-    print(sql_statement)
+    # sql_statement = (
+    #     Template(template_name="sql/get_table_hash.txt", context=context)
+    #     .to_asgi_response(request.app, request)
+    #     .body.decode("utf-8")
+    # )
+    # print(sql_statement)
     return column_list
 
 
-async def upsert_record(transaction_remote: AsyncSession, record: T) -> T:
-    transaction_remote.add(record)
-    await transaction_remote.commit()
+
+
+async def get_unique_col_list(
+    request: Request,
+    trans: AsyncSession,
+    db_id: str,
+    table_name: str,
+    force_refresh: bool = False,
+) -> list[dict[str, str]]:
+
+    trd = request.app.stores.get("tempdatard")
+    table_clm_list_pickle = await trd.get(f"{db_id}_{table_name}_uniqcolumnlist")
+    context = {}
+    if not table_clm_list_pickle or force_refresh == "true":
+        context = {
+            "t_dialect": static.SConstants.db_dilects[db_id],
+            "db_name": static.SConstants.db_names[db_id],
+            "schema_name": static.SConstants.schema_names[db_id],
+            "table_name": await get_clean_table_name(table_name),
+        }
+        sql_statement = (
+            Template(template_name="sql/get_primary_key.txt", context=context)
+            .to_asgi_response(request.app, request)
+            .body.decode("utf-8")
+        )
+        sql_statement = str(sql_statement)
+        print(sql_statement)
+        result = await trans.execute(text(str(sql_statement)))
+
+        column_list_d = [
+            row._asdict() for row in result.all()
+        ]
+        column_list = [row["Column_name"] for row in column_list_d]
+
+        ic(column_list)
+        await trd.set(
+            f"{db_id}_{table_name}_uniqcolumnlist",
+            pickle.dumps(column_list),
+            expires_in=timedelta(seconds=500),
+        )
+    else:
+        column_list = pickle.loads(table_clm_list_pickle)
+    #context["column_list"] = column_list
+    # sql_statement = (
+    #     Template(template_name="sql/get_table_hash.txt", context=context)
+    #     .to_asgi_response(request.app, request)
+    #     .body.decode("utf-8")
+    # )
+    # print(sql_statement)
+    return column_list
+
+
+
+
+
+
+async def upsert_record(a_session: AsyncSession, record: T) -> T:
+    a_session.add(record)
+    await a_session.commit()
     return record
 
-
-async def upsert_records(transaction_remote: AsyncSession, records: list[T]) -> list[T]:
-    transaction_remote.add_all(records)
-    await transaction_remote.commit()
+async def upsert_recordX(request :Request, a_session: AsyncSession, record: T) -> T:
+    connect_args = {"check_same_thread": False}
+    engine = create_engine(request.app.state['local_con_str'].replace('+aiosqlite',''), echo=True, connect_args=connect_args)
+    with Session(engine) as session:
+        rec = session.get(record, record.config_name)
+        session.add(rec)
+        session.commit()
+        return record
+    
+async def upsert_records(a_session: AsyncSession, records: list[T]) -> list[T]:
+    a_session.add_all(records)
+    await a_session.commit()
     return records
 
 
@@ -429,8 +602,10 @@ async def process_compare_post(
     request: Request,
     data: dict,
     transaction_remote: AsyncSession,
+    transaction_remote1: AsyncSession,
+    transaction_local: AsyncSession,
     CLIENT_SESSION_ID: Optional[str],
-    validate_model : bool = False
+    save_model : bool = False
 ):
     bdata = benedict(data)
     column_to_exclude = []  # New list to store keys starting with "exm"
@@ -446,6 +621,7 @@ async def process_compare_post(
 
 
 
+
     force_refresh = False
     if not request.session.get("CLIENT_SESSION_ID"):
         request.session["CLIENT_SESSION_ID"] = CLIENT_SESSION_ID
@@ -453,42 +629,72 @@ async def process_compare_post(
     benecontext = benedict()
     main_compare_types = {}
     ic(bdata)
-    data_compare = TCompareModel(**bdata)
+
+    #data_compare_p = TCompareModel(**bdata)
+    data_compare = TCompareModel(**bdata) 
+    #data_compare = TCompareModel()
+
+    
+
+
+
     data_compare.columns_to_exclude_str = list_to_json(column_to_exclude)
-    data_compare.unique_columns_str = list_to_json(unique_columns)
-    ic(data_compare)
+    # ic(data_compare)
+ 
+    # for attr, value in data_compare_p.__dict__.items():
+    #     if attr != 'id':
+    #         setattr(data_compare, attr, value)
+
+    # ic(data_compare)
+
+
     for t_types in TComareTypes:
         main_compare_types[t_types.name] = t_types.value
 
     columns_left: benedict = {}
     columns_right: benedict = {}
     common_columns: list = []
+    unique_columns_left: list = []
+    unique_columns_right: list = []
 
     if data_compare.left_db != "Select Database" and data_compare.left_db != "":
+        trans_seession = get_sesssion_for_transaction(data_compare.left_db,transaction_remote,transaction_remote1)
         tables = await get_tables_list(
-            request, transaction_remote, data_compare.left_db, force_refresh
+            request, trans_seession, data_compare.left_db, force_refresh
         )
         benecontext["common.left.tables"] = tables
     else:
         benecontext["common.left.tables"] = []
 
     if data_compare.right_db != "Select Database" and data_compare.right_db != "":
+        trans_seession = get_sesssion_for_transaction(data_compare.right_db,transaction_remote,transaction_remote1)
         tables = await get_tables_list(
-            request, transaction_remote, data_compare.right_db, force_refresh
+            request, trans_seession, data_compare.right_db, force_refresh
         )
         benecontext["common.right.tables"] = tables
     else:
         benecontext["common.right.tables"] = []
 
     if data_compare.left_tbl != "Select Table" and data_compare.left_tbl != "":
+        trans_seession = get_sesssion_for_transaction(data_compare.left_db,transaction_remote,transaction_remote1)
         columns_left = await get_column_list(
-            request, transaction_remote, data_compare.left_db, data_compare.left_tbl
+            request, trans_seession, data_compare.left_db, data_compare.left_tbl
+        )
+        unique_columns_left = await get_unique_col_list(
+            request, trans_seession, data_compare.left_db, data_compare.left_tbl
         )
 
     if data_compare.right_tbl != "Select Table" and data_compare.right_tbl != "":
+        trans_seession = get_sesssion_for_transaction(data_compare.right_db,transaction_remote,transaction_remote1)
         columns_right = await get_column_list(
-            request, transaction_remote, data_compare.right_db, data_compare.right_tbl
+            request, trans_seession, data_compare.right_db, data_compare.right_tbl
         )
+        unique_columns_right = await get_unique_col_list(
+            request, trans_seession, data_compare.right_db, data_compare.right_tbl
+        )
+
+    unique_columns = list(set(unique_columns + unique_columns_left + unique_columns_right))
+    data_compare.unique_columns_str = list_to_json(unique_columns)
 
     common_columns = []
     benecontext["common.left.columns"] = columns_left
@@ -517,43 +723,59 @@ async def process_compare_post(
         message = "No common columns found between the selected tables. Please select another table or database.<br>"
 
 
-
-    if validate_model:
+    #This is to validate the model and then save
+    if save_model:
+        message=""
         try:
             TCompareModel.model_validate(data_compare)
         except ValueError as e:
             if '[' in str(e):
+               ic(str(e))
                msg = str(e).split('⚠️')[1].strip()
             else:
                 msg = str(e)
             message = message + msg + "<br>"
 
+
+                
+
  
-        if len(columns_left) > 0:
+        if len(columns_left) > 0 and len(data_compare.left_where_clause) > 0:
+            trans_seession = get_sesssion_for_transaction(data_compare.left_db,transaction_remote,transaction_remote1)
             validate_where_clause = await validate_where(
-                request, transaction_remote, data_compare.left_db, data_compare.left_tbl, columns_left, data_compare.left_where_clause
+                request, trans_seession, data_compare.left_db, data_compare.left_tbl, columns_left, data_compare.left_where_clause
             )
             if not validate_where_clause:
                 message = message + "Left Additonal Where Clause is not valid.<br>"
 
-        if len(columns_right) > 0:
+        if len(columns_right) > 0 and len(data_compare.right_where_clause) > 0:
+            trans_seession = get_sesssion_for_transaction(data_compare.right_db,transaction_remote,transaction_remote1)
             validate_where_clause = await validate_where(
-                request, transaction_remote, data_compare.right_db, data_compare.right_tbl, columns_right, data_compare.right_where_clause
+                request, trans_seession, data_compare.right_db, data_compare.right_tbl, columns_right, data_compare.right_where_clause
             )
             if not validate_where_clause:
                 message = message + "Right Additonal Where Clause is not valid.<br>"
 
         if not check_three_vars(data_compare.left_pivot_choice,data_compare.left_pivot_column,data_compare.left_pivot_format):
             message = message + "Left Pivot Choice, Pivot Column and Pivot Format should be all selected or all none of them should be used.<br>"
+            if data_compare.left_pivot_choice != "":
+                data_compare.left_pivot_choice = ""
+            if data_compare.left_pivot_format != "":
+                data_compare.left_pivot_format = ""
         else:
             if data_compare.left_pivot_column != "" and data_compare.left_pivot_column not in column_l_list:
                 message = message + "Left Pivot Column is not in the selected table.<br>"
+
             else:
                 if data_compare.left_pivot_choice == "custom" and data_compare.left_custom_pivot_value == "":
                     message = message + "Left Custom Pivot Value is required.<br>"
 
         if not check_three_vars(data_compare.right_pivot_choice,data_compare.right_pivot_column,data_compare.right_pivot_format):
             message = message + "Right Pivot Choice, Pivot Column and Pivot Format should be all selected or all none of them should be used.<br>"
+            if data_compare.left_pivot_choice != "":
+                data_compare.right_pivot_choice = ""
+                if data_compare.right_pivot_format != "":
+                    data_compare.right_pivot_format = ""
         else:
             if  data_compare.right_pivot_column != "" and data_compare.right_pivot_column not in column_r_list:
                 message = message + "Right Pivot Column is not in the selected table.<br>"
@@ -561,11 +783,22 @@ async def process_compare_post(
                 if data_compare.right_pivot_choice == "custom" and data_compare.right_custom_pivot_value == "":
                     message = message + "Right Custom Pivot Value is required.<br>"
         
+        if message == "":
+            ic(data_compare)
+            if data_compare.left_pivot_format.lower().startswith("select"):
+                data_compare.left_pivot_format = ""
+            if data_compare.right_pivot_format.lower().startswith("select"):
+                data_compare.right_pivot_format = ""
+
+            await upsert_recordX(request,transaction_local, data_compare)
+            message = "Model Saved Successfully"
 
     benecontext["toastmessage"] = message
 
     # Valdation Ends
     ic(CLIENT_SESSION_ID)
+    #benecontext["id"] = data_compare.id
+    benecontext["config_name"] = data_compare.config_name
     benecontext["main_compare_types"] = main_compare_types
     benecontext["CLIENT_SESSION_ID"] = CLIENT_SESSION_ID
     benecontext["date_formats"] = static.SConstants.date_formats
@@ -587,15 +820,19 @@ async def process_compare_post(
     benecontext["common.right.pivot_format"] = data_compare.right_pivot_format
     benecontext["common.left.where_clause"] = data_compare.left_where_clause
     benecontext["common.right.where_clause"] = data_compare.right_where_clause
+    benecontext["common.left.custom_pivot_value"] = data_compare.left_custom_pivot_value
+    benecontext["common.right.custom_pivot_value"] = data_compare.right_custom_pivot_value
 
-    if str(type(data_compare.left_custom_pivot_value))== "<class 'pendulum.datetime.DateTime'>":
-        benecontext["common.left.custom_pivot_value"] = data_compare.left_custom_pivot_value.to_date_string()
-    else:
-        benecontext["common.left.custom_pivot_value"] = data_compare.left_custom_pivot_value
-    if str(type(data_compare.right_custom_pivot_value))== "<class 'pendulum.datetime.DateTime'>":
-        benecontext["common.right.custom_pivot_value"] = data_compare.right_custom_pivot_value.to_date_string()
-    else:
-        benecontext["common.right.custom_pivot_value"] = data_compare.right_custom_pivot_value
+
+    # if str(type(data_compare.left_custom_pivot_value))== "<class 'pendulum.datetime.DateTime'>":
+    #     benecontext["common.left.custom_pivot_value"] = data_compare.left_custom_pivot_value.to_date_string()
+    # else:
+        
+
+    # if str(type(data_compare.right_custom_pivot_value))== "<class 'pendulum.datetime.DateTime'>":
+    #     benecontext["common.right.custom_pivot_value"] = data_compare.right_custom_pivot_value.to_date_string()
+    # else:
+        
 
 
 

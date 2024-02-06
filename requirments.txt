@@ -19,5 +19,5 @@ dbt
 openpyxl
 aiofiles
 polars[all]
-
+BeautifulSoup4
 

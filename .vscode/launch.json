@@ -23,7 +23,7 @@
         },
         {
             "name": "Python: Current File",
-            "type": "python",
+            "type": "debugpy",
             "request": "launch",
             "program": "${file}",
             "console": "integratedTerminal",
@@ -37,7 +37,7 @@
         },
         {
             "name": "Python: Litestar D",
-            "type": "python",
+            "type": "debugpy",
             "request": "launch",
             "module": "litestar",
             "justMyCode": true,

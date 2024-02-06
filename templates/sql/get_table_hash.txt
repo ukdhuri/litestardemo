@@ -79,7 +79,7 @@ SELECT
             {%+ endif %}
             {%+ if not loop.last %} , {% endif %}
         {% endfor %}
-    )) AS md5_hash
+    )) AS md5_hash,
 
 {% for column in column_list %}
 {{ column['column_name'] }} {%+ if not loop.last %} , {% endif %}

@@ -1,0 +1,11 @@
+{% if t_dialect == 'MYSQL' %}
+SHOW KEYS FROM {{ schema_name }}.your_table_name WHERE Key_name = 'PRIMARY';
+{% endif %}
+
+
+{% if t_dialect == 'TSQL' %}
+SELECT Column_name
+FROM INFORMATION_SCHEMA.KEY_COLUMN_USAGE
+WHERE OBJECTPROPERTY(OBJECT_ID(CONSTRAINT_SCHEMA + '.' + CONSTRAINT_NAME), 'IsPrimaryKey') = 1
+AND TABLE_CATALOG = '{{ db_name }}'  AND TABLE_SCHEMA = '{{ schema_name }}' AND TABLE_NAME = '{{ table_name }}';
+{% endif %}

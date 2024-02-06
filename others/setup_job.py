@@ -16,7 +16,7 @@ from factories.allf import *
 if __name__ == "__main__":
     #initialize(version_base=None, config_path="config", job_name="demo")
     cfg = compose(config_name="config")
-    engine=get_engine(cfg, key="remote")
+    engine=get_engine(cfg, key="remote", echo=True)
     SQLModel.metadata.drop_all(engine)
     #SQLModel.metadata.create_all(engine, tables=[all.User.__table__,all.Batch.__table__,all.Order.__table__,all.OrderItem.__table__,all.ProductCategoryLink.__table__,all.Product.__table__,all.Category.__table__])
     SQLModel.metadata.create_all(engine)

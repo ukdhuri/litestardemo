@@ -1,7 +1,7 @@
 {% if t_dialect == 'MYSQL' %}
 SELECT table_name
 FROM information_schema.tables
-WHERE table_schema NOT IN ('information_schema', 'mysql', 'performance_schema', 'sys');
+WHERE table_schema NOT IN ('information_schema', 'mysql', 'performance_schema', 'sys') AND TABLE_SCHEMA = '{{ schema_name }}';
 {% endif %}
 {% if t_dialect == 'TSQL' %}
 SELECT TABLE_NAME AS table_name

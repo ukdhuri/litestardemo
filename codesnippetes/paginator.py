@@ -11,7 +11,7 @@ from litestar.pagination import AbstractAsyncOffsetPaginator, OffsetPagination
 
 if TYPE_CHECKING:
     from sqlalchemy.engine.result import ScalarResult
-    from sqlalchemy.ext.asyncio import AsyncSession
+    from sqlalchemy.ext.asyncio  import AsyncSession
 
 
 class Person(UUIDBase):

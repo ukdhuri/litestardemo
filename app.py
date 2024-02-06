@@ -16,8 +16,9 @@ import controllers.Compt
 from lib.dependencies import (
     db_remote,
     db_local,
+    db_remote1,
     provide_transaction_remote,
-    provide_transaction_remote,
+    provide_transaction_remote1,
     provide_transaction_local,
 )
 from lib.logging import logging_config
@@ -98,9 +99,10 @@ app = Litestar(
     request_class=HTMXRequest,
     dependencies={
         "transaction_remote": provide_transaction_remote,
+        "transaction_remote1": provide_transaction_remote1,
         "transaction_local": provide_transaction_local,
     },
-    lifespan=[db_remote, db_local],
+    lifespan=[db_remote,db_remote1, db_local],
     logging_config=logging_config,
     on_startup=[on_startup],on_shutdown=[on_shutdown],
     template_config=TemplateConfig(

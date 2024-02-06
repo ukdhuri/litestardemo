@@ -5,7 +5,9 @@ from loguru import logger
 from sqlmodel import SQLModel, Field
 from sqlalchemy import select
 from models import local, remote
-from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
+from sqlalchemy.ext.asyncio  import AsyncSession
+#sqlalchemy.ext.asyncio
+from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 from sqlalchemy.exc import IntegrityError, NoResultFound
 import pandas as pd
 from litestar import Litestar, get, post, put
@@ -38,35 +40,35 @@ async def db_remote(app: Litestar) -> AsyncGenerator[None, None]:
 ## as of now no use
 @asynccontextmanager
 async def db_remote1(app: Litestar) -> AsyncGenerator[None, None]:
-    engine_remote = getattr(app.state, "engine_remote1", None)
+    engine_remote1 = getattr(app.state, "engine_remote1", None)
     if engine_remote1 is None:
         constr = cfg.remote.vendor.connection_string.replace("REPLACEME", "password")
-        app.state.remote_con_str = constr
+        app.state.remote_con_str1 = constr
         engine_remote1 = create_async_engine(constr,echo=True)
         app.state.engine_remote1 = engine_remote1
-        app.state['remote_con_str'] = constr
+        app.state['remote_con_str1'] = constr
     async with engine_remote1.begin() as conn:
         #await conn.run_sync(SQLModel.metadata.create_all)
         logger.info('engine_remote1 created')
     try:
         yield
     finally:
-        await engine_remote.dispose()
+        await engine_remote1.dispose()
 
 @asynccontextmanager
 async def db_local(app: Litestar) -> AsyncGenerator[None, None]:
-    engline_local = getattr(app.state, "engline_local", None)
-    if engline_local is None:
-        engline_local = create_async_engine(cfg.local.vendor.connection_string)
-        app.state.engline_local = engline_local
-        app.state['localcon_str'] = cfg.local.vendor.connection_string
-    async with engline_local.begin() as conn:
+    engine_local = getattr(app.state, "engine_local", None)
+    if engine_local is None:
+        engine_local = create_async_engine(cfg.local.vendor.connection_string,echo=True)
+        app.state.engine_local = engine_local
+        app.state['local_con_str'] = cfg.local.vendor.connection_string
+    async with engine_local.begin() as conn:
         #await conn.run_sync(SQLModel.metadata.create_all)
         logger.info('engine_remote created')
     try:
         yield
     finally:
-        await engline_local.dispose()
+        await engine_local.dispose()
 
 
 sessionmaker = async_sessionmaker(expire_on_commit=False)

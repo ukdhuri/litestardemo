@@ -5,7 +5,7 @@ from loguru import logger
 from sqlmodel import or_, select
 from lib.service import get_batch_fn,get_users_fn,upsert_record,upsert_records,get_product_fn,get_order_fn
 from models import local, remote
-from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.ext.asyncio  import AsyncSession
 from litestar.contrib.htmx.request import HTMXRequest
 from litestar.contrib.htmx.response import HTMXTemplate
 from litestar.response import Template
