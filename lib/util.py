@@ -12,7 +12,8 @@ from litestar.datastructures import State
 from hydra import compose, initialize_config_dir
 from models import local
 import os
-from sqlalchemy.ext.asyncio  import AsyncSession
+# from sqlalchemy.ext.asyncio  import AsyncSession
+from sqlmodel.ext.asyncio.session import AsyncSession
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 from models import remote
 from sqlalchemy.exc import IntegrityError, NoResultFound

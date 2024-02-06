@@ -1,3 +1,4 @@
+import json
 import pickle
 from typing import Optional
 from benedict import benedict
@@ -5,11 +6,12 @@ from litestar import Request
 from loguru import logger
 import pandas as pd
 from sqlalchemy import text
-from sqlmodel import or_, select
-from lib.util import T, list_to_string,list_to_json,check_three_vars
+from sqlmodel import SQLModel, or_, select
+from lib.util import T, json_to_list, list_to_string,list_to_json,check_three_vars
 from models import remote
 #sqlalchemy.ext.asyncio
-from sqlalchemy.ext.asyncio  import AsyncSession
+# from sqlalchemy.ext.asyxxxxxxxxncio  import AsyncSexxxxxxxxxssion
+from sqlmodel.ext.asyncio.session import AsyncSession
 from sqlmodel import select, and_,Session
 from datetime import date
 from sqlmodel import  create_engine
@@ -583,6 +585,33 @@ async def upsert_record(a_session: AsyncSession, record: T) -> T:
     await a_session.commit()
     return record
 
+async def update_record(a_session: AsyncSession, record: SQLModel, pk: list[str]) -> T:
+    fieldlist = [k for k, v in TCompareModel.__annotations__.items()]
+    # Create a dictionary of key-value pairs for the primary key
+    pk_values = {key: getattr(record, key) for key in pk}
+    db_object = await a_session.get(type(record), pk_values)
+    if db_object:
+        
+        model_deump_dict = record.model_dump(exclude_unset=True)
+        for key, value in model_deump_dict.items():
+            if key in fieldlist:
+                setattr(db_object, key, value)
+        a_session.add(db_object)
+        await a_session.commit()
+        #await a_session.refresh(db_object)
+        return db_object
+    else:
+        for key in pk:
+            if getattr(record, key) == 'None' or getattr(record, key) == '':
+                setattr(record, key, None)
+        ic(record)
+        a_session.add(record)
+        await a_session.commit()
+        ic(record)
+        return record
+
+
+
 async def upsert_recordX(request :Request, a_session: AsyncSession, record: T) -> T:
     connect_args = {"check_same_thread": False}
     engine = create_engine(request.app.state['local_con_str'].replace('+aiosqlite',''), echo=True, connect_args=connect_args)
@@ -637,16 +666,16 @@ async def process_compare_post(
     
 
 
+    if len(data_compare.columns_to_exclude_str) > 0:
+        column_to_exclude = column_to_exclude + json_to_list(data_compare.columns_to_exclude_str)
+    else:
+        data_compare.columns_to_exclude_str = list_to_json(column_to_exclude)
 
-    data_compare.columns_to_exclude_str = list_to_json(column_to_exclude)
-    # ic(data_compare)
- 
-    # for attr, value in data_compare_p.__dict__.items():
-    #     if attr != 'id':
-    #         setattr(data_compare, attr, value)
 
-    # ic(data_compare)
-
+    if len(data_compare.unique_columns_str) > 0:
+        unique_columns = unique_columns + json_to_list(data_compare.unique_columns_str)
+    else:
+        data_compare.unique_columns_str = list_to_json(unique_columns)
 
     for t_types in TComareTypes:
         main_compare_types[t_types.name] = t_types.value
@@ -790,14 +819,14 @@ async def process_compare_post(
             if data_compare.right_pivot_format.lower().startswith("select"):
                 data_compare.right_pivot_format = ""
 
-            await upsert_recordX(request,transaction_local, data_compare)
+            data_compare = await update_record(transaction_local, data_compare, ["id"])
             message = "Model Saved Successfully"
 
     benecontext["toastmessage"] = message
 
     # Valdation Ends
     ic(CLIENT_SESSION_ID)
-    #benecontext["id"] = data_compare.id
+    benecontext["id"] = data_compare.id
     benecontext["config_name"] = data_compare.config_name
     benecontext["main_compare_types"] = main_compare_types
     benecontext["CLIENT_SESSION_ID"] = CLIENT_SESSION_ID
@@ -807,7 +836,13 @@ async def process_compare_post(
     benecontext["column_to_exclude"] = data_compare.columns_to_exclude
     benecontext["unique_columns"] = data_compare.unique_columns
 
-    benecontext["t_compare_objects"] = dict(data_compare)
+    try:
+        benecontext["t_compare_objects"] = dict(data_compare)
+    except Exception as e:
+            jsonstr = data_compare.model_dump_json()
+            json_dict = json.loads(jsonstr)
+            benecontext["t_compare_objects"] = json_dict
+
     benecontext["common.left.db"] = data_compare.left_db
     benecontext["common.right.db"] = data_compare.right_db
     benecontext["common.left.tbl"] = data_compare.left_tbl
@@ -822,17 +857,6 @@ async def process_compare_post(
     benecontext["common.right.where_clause"] = data_compare.right_where_clause
     benecontext["common.left.custom_pivot_value"] = data_compare.left_custom_pivot_value
     benecontext["common.right.custom_pivot_value"] = data_compare.right_custom_pivot_value
-
-
-    # if str(type(data_compare.left_custom_pivot_value))== "<class 'pendulum.datetime.DateTime'>":
-    #     benecontext["common.left.custom_pivot_value"] = data_compare.left_custom_pivot_value.to_date_string()
-    # else:
-        
-
-    # if str(type(data_compare.right_custom_pivot_value))== "<class 'pendulum.datetime.DateTime'>":
-    #     benecontext["common.right.custom_pivot_value"] = data_compare.right_custom_pivot_value.to_date_string()
-    # else:
-        
 
 
 

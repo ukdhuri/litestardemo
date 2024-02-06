@@ -2,20 +2,16 @@ from contextlib import asynccontextmanager
 from typing import Any, Optional
 from collections.abc import AsyncGenerator
 from loguru import logger
-from sqlmodel import SQLModel, Field
 from sqlalchemy import select
-from models import local, remote
-from sqlalchemy.ext.asyncio  import AsyncSession
-#sqlalchemy.ext.asyncio
+#from sqlalchemy.ext.asyncio  import AsyncSession
+from sqlmodel.ext.asyncio.session import AsyncSession
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 from sqlalchemy.exc import IntegrityError, NoResultFound
-import pandas as pd
 from litestar import Litestar, get, post, put
 from litestar.datastructures import State
-from litestar.exceptions import ClientException, NotFoundException,InternalServerException
+from litestar.exceptions import ClientException
 from litestar.status_codes import HTTP_409_CONFLICT
-from litestar import Litestar, Request, get
-import static.SConstants 
+from litestar import Litestar
 from lib.util import cfg
 
 
@@ -71,7 +67,7 @@ async def db_local(app: Litestar) -> AsyncGenerator[None, None]:
         await engine_local.dispose()
 
 
-sessionmaker = async_sessionmaker(expire_on_commit=False)
+sessionmaker = async_sessionmaker(class_= AsyncSession, expire_on_commit=False)
 
 
 async def provide_transaction_remote(state: State) -> AsyncGenerator[AsyncSession, None]:

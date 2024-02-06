@@ -6,7 +6,8 @@ from sqlmodel import SQLModel, Field, select
 from enum import Enum
 from lib.util import string_to_list, json_to_list
 from icecream import ic
-from sqlalchemy.ext.asyncio  import AsyncSession
+# from sqlalchemy.ext.asyncio  import AsyncSession
+from sqlmodel.ext.asyncio.session import AsyncSession
 
 class TComareTypes(Enum):
     NOT_SELECTED = "Select Comparison Type for This section"
@@ -62,6 +63,13 @@ class TCompareModel(SQLModel, table=True):
     def unique_columns(self) -> Optional[list[str]]:
         return json_to_list(self.unique_columns_str)
     
+
+    @validator('id', pre=True)
+    def blank_string(cls, value):
+        if value == "" or value == "None":
+            return None
+        return value
+    
     @validator('left_obj_type')
     def validate_left_obj_type(cls, value):
         if value.lower().startswith('select'):
@@ -77,7 +85,7 @@ class TCompareModel(SQLModel, table=True):
     @validator('config_name')
     def validate_config_name(cls, value):
         if value == '':
-            raise ValueError("⚠️Config Name is not provided, either select existing config or type new name to save it⚠️")
+                raise ValueError("⚠️Config Name is not provided, either select existing config or type new name to save it⚠️")
         return value
     
     @validator('left_db')
@@ -108,7 +116,7 @@ class TCompareModel(SQLModel, table=True):
 
 
 async def get_configs(transaction_local: AsyncSession):
-    result = await  transaction_local.execute(select(TCompareModel.config_name))
+    result = await  transaction_local.exec(select(TCompareModel.config_name))
     return result.all()
 
 async def get_configs_by_conifg_name(transaction_local: AsyncSession, config_name: str):

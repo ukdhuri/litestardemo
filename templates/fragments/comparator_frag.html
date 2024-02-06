@@ -17,9 +17,9 @@ hx-target="#comparetwo" hx-indicator="#spinnerbar" hx-include="[name='left_obj_t
     <span id="spinnerbar" class="my-indicator loading loading-spinner loading-lg"></span>
     <div class="flex flex-row mr-2">
       <div class="flex-auto lg:tooltip  mr-3" data-tip="Select Config from list of configs or Type a new name to save configuration with that Name">
-        <input type="text" placeholder="Select Existing Config or Create New One" class="input input-bordered" name="config_name" id="config_name" value="{{ config_name }}" hx-trigger="input changed delay:500ms" hx-get="/compt/get_config"
+        <input type="text" placeholder="Select Existing Config or Create New One" class="input input-bordered" name="config_name" id="config_name" value="{{ config_name }}" hx-trigger="input changed delay:500ms" hx-post="/compt/get_config"  hx-ext='json-enc'
           list="config_list" />
-          <!-- <input  type="hidden" name="id" id="config_id" value="{{ id }}" hx-ext='json-enc' class="hidden"> -->
+          <input  type="hidden" name="id" id="config_id" value="{{ id }}" hx-ext='json-enc' class="hidden">
 
         <datalist id="config_list">
           {% for config_name in configs %}

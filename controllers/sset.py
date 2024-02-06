@@ -5,7 +5,8 @@ from litestar.contrib.htmx.response import HTMXTemplate, HXLocation
 from collections.abc import AsyncGenerator
 from random import randint
 import asyncio
-from sqlalchemy.ext.asyncio  import AsyncSession
+#from sqlalchemy.ext.asyncio  import AsyncSession
+from sqlmodel.ext.asyncio.session import AsyncSession
 from lib.util import getemoji
 
 

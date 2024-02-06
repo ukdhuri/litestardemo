@@ -30,7 +30,7 @@ async def my_async_function():
     async with async_engine.begin() as conn:
         await conn.run_sync(SQLModel.metadata.create_all,tables=[TCompareModel.__table__])
 
-
+    exit()
 
     async_session = sessionmaker(
         bind=async_engine, class_=AsyncSession, expire_on_commit=False
@@ -66,7 +66,7 @@ async def my_async_function():
 
     async with async_session() as session:
         async with session.begin():
-            db_object = await session.get(TCompareModel, 1)
+            db_object = await session.get(TCompareModel, {"id": 1})
             hero_data = data_obj.model_dump(exclude_unset=True)
             for key, value in hero_data.items():
                 if key in list_fields:
