@@ -6222,20 +6222,6 @@ details.collapse summary::-webkit-details-marker {
   padding: 0px;
 }
 
-.divider-horizontal {
-  flex-direction: column;
-}
-
-.divider-horizontal:before {
-  height: 100%;
-  width: 0.125rem;
-}
-
-.divider-horizontal:after {
-  height: 100%;
-  width: 0.125rem;
-}
-
 .drawer-open > .drawer-toggle {
   display: none;
 }
@@ -6510,15 +6496,6 @@ details.collapse summary::-webkit-details-marker {
 
 .card-normal .card-title {
   margin-bottom: 0.75rem;
-}
-
-.divider-horizontal {
-  margin-left: 1rem;
-  margin-right: 1rem;
-  margin-top: 0px;
-  margin-bottom: 0px;
-  height: auto;
-  width: 1rem;
 }
 
 .drawer-open > .drawer-toggle ~ .drawer-side > .drawer-overlay {
@@ -7060,34 +7037,14 @@ details.collapse summary::-webkit-details-marker {
   height: 100dvh;
 }
 
-.h-20 {
-  height: 5rem;
-}
-
-.h-32 {
-  height: 8rem;
-}
-
-.h-full {
-  height: 100%;
-}
-
-.h-96 {
-  height: 24rem;
-}
-
-.h-max {
-  height: -moz-max-content;
-  height: max-content;
-}
-
 .h-fit {
   height: -moz-fit-content;
   height: fit-content;
 }
 
-.max-h-full {
-  max-height: 100%;
+.h-min {
+  height: -moz-min-content;
+  height: min-content;
 }
 
 .min-h-full {
@@ -7126,6 +7083,10 @@ details.collapse summary::-webkit-details-marker {
   width: 13rem;
 }
 
+.w-56 {
+  width: 14rem;
+}
+
 .w-6 {
   width: 1.5rem;
 }
@@ -7140,10 +7101,6 @@ details.collapse summary::-webkit-details-marker {
 
 .w-full {
   width: 100%;
-}
-
-.w-56 {
-  width: 14rem;
 }
 
 .max-w-xs {
@@ -8815,34 +8772,6 @@ details.collapse summary::-webkit-details-marker {
 }
 
 @media (min-width: 1024px) {
-  .lg\:divider-horizontal {
-    flex-direction: column;
-  }
-
-  .lg\:divider-horizontal:before {
-    height: 100%;
-    width: 0.125rem;
-  }
-
-  .lg\:divider-horizontal:after {
-    height: 100%;
-    width: 0.125rem;
-  }
-
-  .lg\:divider-vertical {
-    flex-direction: row;
-  }
-
-  .lg\:divider-vertical:before {
-    height: 0.125rem;
-    width: 100%;
-  }
-
-  .lg\:divider-vertical:after {
-    height: 0.125rem;
-    width: 100%;
-  }
-
   .lg\:tooltip {
     position: relative;
     display: inline-block;
@@ -8860,24 +8789,6 @@ details.collapse summary::-webkit-details-marker {
     left: 50%;
     right: auto;
     bottom: var(--tooltip-offset);
-  }
-
-  .lg\:divider-horizontal {
-    margin-left: 1rem;
-    margin-right: 1rem;
-    margin-top: 0px;
-    margin-bottom: 0px;
-    height: auto;
-    width: 1rem;
-  }
-
-  .lg\:divider-vertical {
-    margin-left: 0px;
-    margin-right: 0px;
-    margin-top: 1rem;
-    margin-bottom: 1rem;
-    height: 1rem;
-    width: auto;
   }
 
   .lg\:tooltip {
@@ -8988,9 +8899,5 @@ details.collapse summary::-webkit-details-marker {
 
   .lg\:hidden {
     display: none;
-  }
-
-  .lg\:flex-row {
-    flex-direction: row;
   }
 }
