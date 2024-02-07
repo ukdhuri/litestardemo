@@ -79,7 +79,7 @@ async def testwebsocket(request: Request, channels: ChannelsPlugin) -> Response:
     emo = await getemoji()
     #[channels.publish(await getemoji(), channels=[chnl]) for chnl in request.app.dependencies['channels'].value._channels]
     scheduler = AsyncIOScheduler()
-    #scheduler.add_job(scheduled_task, "interval", seconds=5, args=[app,channels])
+    scheduler.add_job(scheduled_task, "interval", seconds=5, args=[app,channels])
     scheduler.start()
     app.state['scheduler'] = scheduler
     app.state['publisher_started']  = True

@@ -90,8 +90,8 @@ class ComptController(Controller):
             template_name='fragments/comparator_frag.html',context=benecontext
         )
         
-    @post(["/get_config"], sync_to_thread=False)
-    async def get_config(
+    @post(["/load_config"], sync_to_thread=False)
+    async def load_config(
         self,
         data : dict,
         request: Request,

@@ -28,12 +28,12 @@ from litestar import Controller, MediaType, Request, Response, get
 #https://stackoverflow.com/questions/77540472/html-elements-in-response-using-htmxs-websockets-extension-are-getting-hyphens
 async def scheduled_task(app: Litestar,channels: ChannelsPlugin):
     #[channels.publish(await getemoji(), channels=[chnl]) for chnl in app.dependencies['channels'].value._channels]
-    try:
-        if 'is' not in app.state:
-            Template(template_str='',context={'emo':'xxx'}).to_asgi_response(app,app.state['schedulerrequest'])
-            app.state['is'] = True
-    except:
-        raise 
+    # try:
+    #     if 'is' not in app.state:
+    #         Template(template_str='',context={'emo':'xxx'}).to_asgi_response(app,app.state['schedulerrequest'])
+    #         app.state['is'] = True
+    # except:
+    #     raise 
         
     emo = await getemoji()
     fk = Faker()
@@ -88,8 +88,6 @@ async def scheduled_puiblisher(app,scheduler):
 
 
 async def start_scheduler(app):
-    return
-
     scheduler = AsyncIOScheduler()
     scheduler.add_job(scheduled_puiblisher, 'date', run_date=datetime.now() + timedelta(seconds=3), args=[app,scheduler])
     scheduler.start()

@@ -1,4 +1,4 @@
-from datetime import date
+from datetime import date, datetime
 from typing import Optional
 import pendulum
 from pydantic import BaseModel, computed_field, validator
@@ -21,6 +21,15 @@ class TComareTypes(Enum):
     TABLE = "Table"
     CTE = "CTE"
 
+
+class TSchduledCompareRunModel(SQLModel, table=True):
+    id: Optional[int] = Field(default=None, primary_key=True)
+    config_id: int = Field(default=0, description="config id")
+    run_stat_date: Optional[datetime] = Field(default=None, description="Run Start Date")
+    run_end_date: Optional[datetime] = Field(default=None, description="Run End Date")
+    run_status: Optional[str] = Field(default=None, description="Run Status")
+    run_error: Optional[str] = Field(default=None, description="Run Error")
+    
     
 class TCompareModel(SQLModel, table=True):
     id: Optional[int] = Field(default=None, primary_key=True)

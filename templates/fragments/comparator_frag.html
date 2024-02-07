@@ -17,7 +17,7 @@ hx-target="#comparetwo" hx-indicator="#spinnerbar" hx-include="[name='left_obj_t
     <span id="spinnerbar" class="my-indicator loading loading-spinner loading-lg"></span>
     <div class="flex flex-row mr-2">
       <div class="flex-auto lg:tooltip  mr-3" data-tip="Select Config from list of configs or Type a new name to save configuration with that Name">
-        <input type="text" placeholder="Select Existing Config or Create New One" class="input input-bordered" name="config_name" id="config_name" value="{{ config_name }}" hx-trigger="input changed delay:500ms" hx-post="/compt/get_config"  hx-ext='json-enc'
+        <input type="text" placeholder="Select Existing Config or Create New One" class="input input-bordered" name="config_name" id="config_name" value="{{ config_name }}" hx-trigger="input changed delay:500ms" hx-post="/compt/load_config"  hx-ext='json-enc'
           list="config_list" />
           <input  type="hidden" name="id" id="config_id" value="{{ id }}" hx-ext='json-enc' class="hidden">
 
@@ -28,7 +28,8 @@ hx-target="#comparetwo" hx-indicator="#spinnerbar" hx-include="[name='left_obj_t
         </datalist>
        
       </div>
-      <button class="btn btn-active btn-primary"  hx-post="/compt/saveconfig" hx-ext='json-enc'>Save configuration</button>
+      <button class="btn btn-active btn-primary mr-3"  hx-post="/compt/saveconfig" hx-ext='json-enc'>Save configuration</button>
+      <button class="btn btn-active btn-primary mr-3"  hx-post="/compt/schedule_compare_run" hx-ext='json-enc'>Schedule Run</button>
     </div>
   </div>
   <div class="flex sm:flex-row flex-col px-2 mt-2">
@@ -45,8 +46,47 @@ hx-target="#comparetwo" hx-indicator="#spinnerbar" hx-include="[name='left_obj_t
     {% if t_compare_objects.left_tbl and t_compare_objects.right_tbl and t_compare_objects.left_tbl !="Select Table" and t_compare_objects.right_tbl != "Select Table" and  common_columns|length > 0 %}
 
     <div class="flex flex-col justify-center">
-      <div class="p-3  flex-auto"><p>Non matching column names are excluded from the comparison by default in Table to Table Comparison, if you are want to use match different column names please use cte option and then write select statement to match the column names using alias. </p></div>
+      <div class="p-3  flex-auto">
+        <p>Non matching column names are excluded from the comparison by default in Table to Table Comparison, if you are want to use match different column names please use cte option and then write select statement to match the column names using alias. </p>
+        <p>Current Run Progress
+        </p>
+        <p><progress class="progress progress-secondary w-56" value="0" max="30"></progress>
+      </p>
+      </div>
       <div class="flex-1 w-64 flex flex-row">
+
+        {% if id %}
+<table class="table flex-auto">
+  <!-- head -->
+  <thead>
+    <tr>     
+      <th>Run ID</th>
+      <th>Run Status</th>
+      <th>Report Path</th>
+    </tr>
+  </thead>
+  <tbody  id="contentsx" hx-ext="ws" ws-connect="/tblw">
+    <!-- row 1 scheduled_compare_run_tbl ws-connect="/ws_scheduled_compare_run_{{ id }}"-->
+    {% for column in  common_columns %}
+      <tr>
+        <td>{{ column }}</td>
+        <td>{{ column }}</td>
+        <td>{{ column }}</td>
+      </tr>
+    {% endfor %}
+  </tbody>
+  <!-- foot -->
+  <tfoot>
+    <tr>
+      <th>Run ID</th>
+      <th>Run Status</th>
+      <th>Report Path</th>
+    </tr>
+  </tfoot>
+</table>
+
+{% endif %}
+
 
         <table class="table flex-auto">
           <!-- head -->
@@ -79,7 +119,7 @@ hx-target="#comparetwo" hx-indicator="#spinnerbar" hx-include="[name='left_obj_t
             </tr>
           </tfoot>
         </table>
-        <table class="table flex-auto">
+        <table class="table flex-auto mr-3">
           <!-- head -->
           <thead>
             <tr>
@@ -110,6 +150,15 @@ hx-target="#comparetwo" hx-indicator="#spinnerbar" hx-include="[name='left_obj_t
             </tr>
           </tfoot>
         </table>
+
+       <div class="bg-base-200 flex-auto h-fit">
+        <div class="divide-horizontal  h-fit"></div> 
+
+      </div>
+
+
+
+
       </div>
     </div>
     {% endif %}
