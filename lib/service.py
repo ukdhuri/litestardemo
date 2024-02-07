@@ -17,7 +17,7 @@ from datetime import date
 from sqlmodel import  create_engine
 import copy
 from typing import TypeVar
-from models.History import BaseHistory, SearchAndOrder
+from models.History import BaseHistory, SearchAndOrder, StatuSHistory
 from models.TCompare import TComareTypes, TCompareModel
 import static.SConstants
 from litestar.response import Template
@@ -44,24 +44,20 @@ async def get_df(stmt, engine):
     return data
 
 
-async def build_context(
-    title: str,
-    resultlist: list[BaseHistory],
-    hist: BaseHistory,
-    data: SearchAndOrder,
-    update_order_section=False,
-    shouldusepagination=False,
-) -> dict:
-    return {
-        "title": title,
-        "result_list": resultlist,
-        "user_page_squeunce": hist.get_user_page_squeunce(),
-        "sql_column_sequnce": hist.get_sql_column_sequnce(),
-        "sql_order_sequnce": data.order_sequnce,
-        "sql_order_direction": data.order_direction,
-        "clm_name_mapping": static.SConstants.clm_name_mapping,
-        "rev_direction": static.SConstants.rev_direction,
-        "update_order_section": update_order_section,
+async def build_context(title: str, resultlist: list[BaseHistory], hist: BaseHistory,data: SearchAndOrder,update_order_section = False,shouldusepagination = False, bscript : Optional[str] = "", bdiv : Optional[str] = "",documentpath="/") -> dict:
+    return  {
+    "documentpath":documentpath,
+    "title": title,
+    "result_list": resultlist,
+    "user_page_squeunce": hist.get_user_page_squeunce(),
+    "sql_column_sequnce": hist.get_sql_column_sequnce(),
+    "sql_order_sequnce": data.order_sequnce,
+    "sql_order_direction": data.order_direction,
+    "clm_name_mapping" : static.SConstants.clm_name_mapping,
+    "rev_direction": static.SConstants.rev_direction,
+    "update_order_section"  : update_order_section,
+    "histpiescript" : bscript,
+    "histpiechart" : bdiv,
     }
 
 
@@ -338,11 +334,28 @@ async def plot_pie_chart(inputdataset,idkey="process_id", statuskey='process_sta
 
 
 async def plot_pie_chartX(inputdataset,idkey="process_id", statuskey='process_status', colors = {'Completed': 'green', 'Failed': 'red', 'In Progress': 'orange'}):
+
+    m = StatuSHistory(process_id=1, process_status="Completed")
+    m1 = StatuSHistory(process_id=2, process_status="Failed")
+    m2 = StatuSHistory(process_id=3, process_status="In Progress")
+    m3 = StatuSHistory(process_id=4, process_status="In Progress")
+    m4 = StatuSHistory(process_id=5, process_status="Completed")
+    inputdataset.append(m)
+    inputdataset.append(m1)
+    inputdataset.append(m2)
+    inputdataset.append(m3)
+    inputdataset.append(m4)
+    
+    
     dataset = pd.DataFrame.from_records(map(dict, inputdataset)).iloc[:, 1:]
+  
     # Create a dictionary to map the status to a color
     #colors = {'Completed': 'green', 'Failed': 'red', 'In Progress': 'orange'}
     # Group the dataset by status
     data = dataset.groupby(statuskey).count().reset_index()
+
+
+
     # Add a column for the angle of each wedge
     data['angle'] = data[idkey]/data[idkey].sum() * 2*3.14
     # Add a column for the color of each wedge

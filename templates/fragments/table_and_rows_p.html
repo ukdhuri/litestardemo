@@ -1,0 +1,19 @@
+<table class="table table-xl table-zebra table-pin-rows" id="search-results-tbl" hx-swap-oob="true" >
+    <thead>
+    <tr>
+    {% for clmsqn in user_page_squeunce %}
+       <th>{{ clm_name_mapping[sql_column_sequnce[clmsqn]] }}</th>
+    {% endfor %}
+    </tr>
+    </thead>
+<tbody id="search-results-tbd">
+    {% include 'fragments/table_rows.html' %}
+</tbody>
+<tfoot id="history_footer">
+    <tr>
+    {% for clmsqn in user_page_squeunce %}
+       <th>{{ clm_name_mapping[sql_column_sequnce[clmsqn]] }}</th>
+    {% endfor %}
+    </tr>
+</tfoot>
+</table>

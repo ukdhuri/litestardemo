@@ -8,7 +8,7 @@ from httpx import post
 from litestar import Controller, MediaType, Request, Response, get
 import pandas as pd
 from sqlmodel import or_, select
-from lib.service import get_recent_orders, get_users_fn, last_order_id,get_historical_result,build_context
+from lib.service import get_recent_orders, get_users_fn, last_order_id,get_historical_result,build_context, plot_pie_chartX
 from models import remote,History
 #from sqlalchemy.ext.asyncio  import AsyncSession
 from sqlmodel.ext.asyncio.session import AsyncSession
@@ -130,8 +130,8 @@ class HomeController(Controller):
             template_name='fragments/table_rows.html'
             return HTMXTemplate(
                     template_name=template_name,context=context,
-                     re_swap="beforebegin",  # change swapping method
-                     re_target=f"#history_footer",  # change target element
+                     re_swap="beforeend",  # change swapping method
+                     re_target=f"#search-results-tbd",  # change target element
             )
         return HTMXTemplate(
             template_name=template_name,context=context,trigger_event="resetpagenumber",after="receive"
@@ -268,3 +268,27 @@ class HomeController(Controller):
         # if lastorderid:
         #     if lastorderid!=neworderid:
         #         await st.set("lastorderid", str(neworderid))
+
+
+    @post(["/get_hist_plot"], sync_to_thread=False)
+    async def get_hist_plot(
+        self,
+        request: Request,
+        transaction_remote: AsyncSession ,
+        data: History.SearchAndOrder
+    ) -> ClientRedirect:
+        lhist = History.UserHistory()
+        data.page_size = -1
+        achemylist = await get_historical_result(request=request, asyncsession = transaction_remote,
+                                                scalar=False, tracker=data, histmodel=History.UserHistory)
+        rsultlist = [History.UserHistory(**row._asdict()) for row in achemylist]   
+        if len(rsultlist) == 0:
+            return Response[None]
+        script , div = await plot_pie_chartX(rsultlist)   
+        context = await build_context(title="Home",resultlist=rsultlist,hist=lhist,data=data,update_order_section = True,bscript=script,bdiv=div)
+        template_name='fragments/hist_plot.html'
+        return HTMXTemplate(
+            template_name=template_name,
+            context=context,          
+            # possible values 'receive', 'settle', and 'swap'
+        ) 

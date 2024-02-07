@@ -124,7 +124,11 @@ class BaseHistory(SQLModel, table=False):
 #             )
 #         """
 
+class StatuSHistory(BaseHistory, table=False):
+    process_id: Optional[int] = -1
+    process_status: Optional[str] = ""
 
+    
 class UserHistory(BaseHistory, table=False):
     id: Optional[int] = -1
     name: Optional[str] = ""
