@@ -8,7 +8,7 @@
     "configurations": [
         {
             "name": "Python: Litestar app",
-            "type": "python",
+            "type": "debugpy",
             "request": "launch",
             "module": "uvicorn",
             "justMyCode": true,
@@ -18,7 +18,9 @@
                 "9999",
                 "--reload",
                 "--log-level",
-                "debug"
+                "debug",
+                "--host",
+                "0.0.0.0"
             ]
         },
         {

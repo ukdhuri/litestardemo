@@ -16,7 +16,7 @@ def print_primes(n):
 
     for p in range(2, n + 1):
         if sieve[p]:
-            ic(p)
+            #ic(p)
 
 # Join all threads
 def remove_finished_threads():
@@ -24,7 +24,7 @@ def remove_finished_threads():
         time.sleep(1)
         for t in globaltheads:
             if not t.is_alive():
-                ic(f'removing thread... {t}')
+                #ic(f'removing thread... {t}')
                 globaltheads.remove(t)
 
 
@@ -42,13 +42,13 @@ def call_print_primes():
 for _ in range(25):
     call_print_primes()
 
-ic(len(globaltheads))
+#ic(len(globaltheads))
 time.sleep(10)
-ic(len(globaltheads))
+#ic(len(globaltheads))
 
 
 
 
 for t in globaltheads:
-    ic(f'Joining thread... {t}')
+    #ic(f'Joining thread... {t}')
     t.join()

@@ -29,7 +29,7 @@ hx-target="#comparetwo" hx-indicator="#spinnerbar" hx-include="[name='left_obj_t
        
       </div>
       <button class="btn btn-active btn-primary mr-3"  hx-post="/compt/saveconfig" hx-ext='json-enc'>Save configuration</button>
-      <button class="btn btn-active btn-primary mr-3"  hx-post="/compt/schedule_compare_run" hx-ext='json-enc'>Schedule Run</button>
+      <button class="btn btn-active btn-primary mr-3"  hx-post="/compt/schedule_compare_run" hx-ext='json-enc' hx-target="#fakediv">Schedule Run</button>
     </div>
   </div>
   <div class="flex sm:flex-row flex-col px-2 mt-2">
@@ -54,121 +54,129 @@ hx-target="#comparetwo" hx-indicator="#spinnerbar" hx-include="[name='left_obj_t
       </p>
       </div>
       <div class="flex-1 w-64 flex flex-row">
+        <div class="h-min flex-auto">
+          <table class="table flex-auto">
+            <!-- head -->
+            <thead>
+              <tr>
+                <th>
+                  <label></label>
+                </th>
+                <th>Select column(s) that will form unique key</th>
+              </tr>
+            </thead>
+            <tbody>
+              <!-- row 1 -->
+              {% for column in  common_columns %}
+                <tr>
+                  <th>
+                    <label>
+                      <input type="checkbox" name="uniqclm_{{ column }}" class="checkbox" {% if column in unique_columns %}checked{% endif %}>
+                    </label>
+                  </th>
+                  <td>{{ column }}</td>
+                </tr>
+              {% endfor %}
+            </tbody>
+            <!-- foot -->
+            <tfoot>
+              <tr>
+                <th></th>
+                <th>Select Additional column(s) that will form unique key</th>
+              </tr>
+            </tfoot>
+          </table>
+        </div>
+  
+        <div class="h-min flex-auto">
+           <table class="table  mr-3">
+            <!-- head -->
+            <thead>
+              <tr>
+                <th>
+                  <label></label>
+                </th>
+                <th>Select column(s) to exclude from comparison</th>
+              </tr>
+            </thead>
+            <tbody>
+              <!-- row 1 -->
+              {% for column in  common_columns %}
+                <tr>
+                  <th>
+                    <label>
+                      <input type="checkbox" name="exclm_{{ column }}" class="checkbox" {% if column in column_to_exclude %}checked{% endif %}>
+                    </label>
+                  </th>
+                  <td>{{ column }}</td>
+                </tr>
+              {% endfor %}
+            </tbody>
+            <!-- foot -->
+            <tfoot>
+              <tr>
+                <th></th>
+                <th>Select column(s) to exclude from comparison</th>
+              </tr>
+            </tfoot>
+          </table>
+        </div>
+  
+        <div class="flex-auto">
+         <div class="bg-base-200 flex-auto h-fit">
+          <div class="divide-horizontal  h-fit"></div> 
+  
+        </div>
+  
+        </div>
+      </div>
 
         {% if id %}
-<table class="table flex-auto">
+        <h2 class="mt-3">Compare Run Status</h2>
+        <div class="flex-1 w-64 flex flex-row mt-6">
+        <!-- <div id="terminal" class="mockup-code  mr-3">
+          <pre  data-prefix="1"><code>npm i daisyui</code></pre> 
+          <pre data-prefix="2"><code>installing...</code></pre> 
+          <pre data-prefix="3" class="bg-warning text-warning-content"><code>Error!</code></pre>
+          <pre id = 'terminallastrow'><code>npm run dev</code></pre>
+        </div> -->
+        <div id="terminal_wrapper" hx-ext="ws"  ws-connect="/ws_chnl_compare_log_{{ id }}" hx-preserve>
+          <div id="terminal" class="mockup-code mr-3">
+            <pre  data-prefix="$" id='terminallastrow'><code>...</code></pre>
+          </div>
+        </div>
+<table class="table flex-auto" hx-ext="ws" ws-connect="/ws_chnl_compare_runs_{{ id }}"  hx-preserve>
   <!-- head -->
   <thead>
     <tr>     
       <th>Run ID</th>
       <th>Run Status</th>
-      <th>Report Path</th>
+      <th>Run Start Time</th>
+      <th>Run End Time</th>
+      <th>Run Report</th>
     </tr>
   </thead>
-  <tbody  id="contentsx" hx-ext="ws" ws-connect="/tblw">
+  <tbody  id="scr_tbody" hx-ext="multi-swap">
     <!-- row 1 scheduled_compare_run_tbl ws-connect="/ws_scheduled_compare_run_{{ id }}"-->
-    {% for column in  common_columns %}
-      <tr>
-        <td>{{ column }}</td>
-        <td>{{ column }}</td>
-        <td>{{ column }}</td>
-      </tr>
-    {% endfor %}
   </tbody>
   <!-- foot -->
   <tfoot>
     <tr>
       <th>Run ID</th>
       <th>Run Status</th>
-      <th>Report Path</th>
+      <th>Run Start Time</th>
+      <th>Run End Time</th>
+      <th>Run Report</th>
     </tr>
   </tfoot>
 </table>
-
+        </div>
 {% endif %}
 
-      <div class="h-min flex-auto">
-        <table class="table flex-auto">
-          <!-- head -->
-          <thead>
-            <tr>
-              <th>
-                <label></label>
-              </th>
-              <th>Select column(s) that will form unique key</th>
-            </tr>
-          </thead>
-          <tbody>
-            <!-- row 1 -->
-            {% for column in  common_columns %}
-              <tr>
-                <th>
-                  <label>
-                    <input type="checkbox" name="uniqclm_{{ column }}" class="checkbox" {% if column in unique_columns %}checked{% endif %}>
-                  </label>
-                </th>
-                <td>{{ column }}</td>
-              </tr>
-            {% endfor %}
-          </tbody>
-          <!-- foot -->
-          <tfoot>
-            <tr>
-              <th></th>
-              <th>Select Additional column(s) that will form unique key</th>
-            </tr>
-          </tfoot>
-        </table>
-      </div>
-
-      <div class="h-min flex-auto">
-         <table class="table  mr-3">
-          <!-- head -->
-          <thead>
-            <tr>
-              <th>
-                <label></label>
-              </th>
-              <th>Select column(s) to exclude from comparison</th>
-            </tr>
-          </thead>
-          <tbody>
-            <!-- row 1 -->
-            {% for column in  common_columns %}
-              <tr>
-                <th>
-                  <label>
-                    <input type="checkbox" name="exclm_{{ column }}" class="checkbox" {% if column in column_to_exclude %}checked{% endif %}>
-                  </label>
-                </th>
-                <td>{{ column }}</td>
-              </tr>
-            {% endfor %}
-          </tbody>
-          <!-- foot -->
-          <tfoot>
-            <tr>
-              <th></th>
-              <th>Select column(s) to exclude from comparison</th>
-            </tr>
-          </tfoot>
-        </table>
-      </div>
-
-      <div class="flex-auto">
-       <div class="bg-base-200 flex-auto h-fit">
-        <div class="divide-horizontal  h-fit"></div> 
-
-      </div>
-
-
-
-
-      </div>
-    </div>
     {% endif %}
   
   </div>
 
 </div>
+<div id="fakediv" class="hidden" hx-swap-oob="true"></div>
 </form>

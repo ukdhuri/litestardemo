@@ -36,7 +36,6 @@ from litestar.status_codes import HTTP_500_INTERNAL_SERVER_ERROR
 from litestar.channels import ChannelsPlugin
 from litestar.channels.backends.memory import MemoryChannelsBackend
 from litestar.static_files.config import StaticFilesConfig
-from litestar.channels import ChannelsPlugin
 from litestar.channels.backends.memory import MemoryChannelsBackend
 from pathlib import Path
 from litestar import get
@@ -93,6 +92,7 @@ app = Litestar(
     [controllers.Compt.ComptController, testwebsocket,handle_file_download,shutdown,controllers.Home.HomeController,controllers.Factory.FactoryController,controllers.SocketWeb.SocketWebController],
     static_files_config=[
         StaticFilesConfig(directories=["static"], path="/static",send_as_attachment=True,),
+        StaticFilesConfig(directories=["reports"], path="/reports",send_as_attachment=True,),
         
     ],
     exception_handlers=exception.exception_handlers,
@@ -112,7 +112,7 @@ app = Litestar(
     debug=True,
     middleware=[ServerSideSessionConfig().middleware],
     stores=stores,
-    plugins=[ChannelsPlugin(channels=["emoji"],backend=MemoryChannelsBackend(history=10000),arbitrary_channels_allowed=True,create_ws_route_handlers=True,ws_handler_send_history=10000)],
+    plugins=[ChannelsPlugin(backend=MemoryChannelsBackend(history=15),arbitrary_channels_allowed=True,create_ws_route_handlers=True,ws_handler_send_history=1)],
 )
 
 

@@ -55,6 +55,8 @@ async def scheduled_task(app: Litestar,channels: ChannelsPlugin):
     logger.debug(fragment_response.body.decode())
     channels.publish(response, channels=['emoji'])
     channels.publish(responset, channels=['tblw'])
+    channels
+
     # if str(app.dependencies['channels'].value) != '_EmptyEnum.EMPTY':    
     #     channels_plugin : ChannelsPlugin = app.dependencies['channels'].value
     #     channels = channels_plugin._channels
@@ -89,7 +91,7 @@ async def scheduled_puiblisher(app,scheduler):
 
 async def start_scheduler(app):
     scheduler = AsyncIOScheduler()
-    scheduler.add_job(scheduled_puiblisher, 'date', run_date=datetime.now() + timedelta(seconds=3), args=[app,scheduler])
+    #scheduler.add_job(scheduled_puiblisher, 'date', run_date=datetime.now() + timedelta(seconds=3), args=[app,scheduler])
     scheduler.start()
     app.state['scheduler'] = scheduler
 

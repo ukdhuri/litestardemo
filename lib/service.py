@@ -1,3 +1,4 @@
+import asyncio
 import json
 import pickle
 from typing import Optional
@@ -6,19 +7,17 @@ from litestar import Request
 from loguru import logger
 import pandas as pd
 from sqlalchemy import text
-from sqlmodel import SQLModel, or_, select
-from lib.util import T, json_to_list, list_to_string,list_to_json,check_three_vars
+from sqlmodel import Session, SQLModel, col, create_engine, select, and_, Session, or_
+from lib.util import T, compare_mismatched_rows, find_mismatched_rows, get_common_rows, json_to_list, list_to_string, list_to_json, check_three_vars, get_extra_rows_using_hash
 from models import remote
-#sqlalchemy.ext.asyncio
+# sqlalchemy.ext.asyncio
 # from sqlalchemy.ext.asyxxxxxxxxncio  import AsyncSexxxxxxxxxssion
 from sqlmodel.ext.asyncio.session import AsyncSession
-from sqlmodel import select, and_,Session
 from datetime import date
-from sqlmodel import  create_engine
 import copy
 from typing import TypeVar
 from models.History import BaseHistory, SearchAndOrder, StatuSHistory
-from models.TCompare import TComareTypes, TCompareModel
+from models.TCompare import Keyhashtbl, TComareTypes, Tcomparemodel, Tschduledcomparerunmodel
 import static.SConstants
 from litestar.response import Template
 import static.SConstants
@@ -34,6 +33,8 @@ from bokeh.models import ColumnDataSource
 from bokeh.embed import components
 from bokeh.io import curdoc
 from bs4 import BeautifulSoup
+from litestar.channels import ChannelsPlugin
+
 
 def read_sql_query(con, stmt):
     return pd.read_sql(stmt, con)
@@ -44,20 +45,30 @@ async def get_df(stmt, engine):
     return data
 
 
-async def build_context(title: str, resultlist: list[BaseHistory], hist: BaseHistory,data: SearchAndOrder,update_order_section = False,shouldusepagination = False, bscript : Optional[str] = "", bdiv : Optional[str] = "",documentpath="/") -> dict:
-    return  {
-    "documentpath":documentpath,
-    "title": title,
-    "result_list": resultlist,
-    "user_page_squeunce": hist.get_user_page_squeunce(),
-    "sql_column_sequnce": hist.get_sql_column_sequnce(),
-    "sql_order_sequnce": data.order_sequnce,
-    "sql_order_direction": data.order_direction,
-    "clm_name_mapping" : static.SConstants.clm_name_mapping,
-    "rev_direction": static.SConstants.rev_direction,
-    "update_order_section"  : update_order_section,
-    "histpiescript" : bscript,
-    "histpiechart" : bdiv,
+async def build_context(
+    title: str,
+    resultlist: list[BaseHistory],
+    hist: BaseHistory,
+    data: SearchAndOrder,
+    update_order_section=False,
+    shouldusepagination=False,
+    bscript: Optional[str] = "",
+    bdiv: Optional[str] = "",
+    documentpath="/",
+) -> dict:
+    return {
+        "documentpath": documentpath,
+        "title": title,
+        "result_list": resultlist,
+        "user_page_squeunce": hist.get_user_page_squeunce(),
+        "sql_column_sequnce": hist.get_sql_column_sequnce(),
+        "sql_order_sequnce": data.order_sequnce,
+        "sql_order_direction": data.order_direction,
+        "clm_name_mapping": static.SConstants.clm_name_mapping,
+        "rev_direction": static.SConstants.rev_direction,
+        "update_order_section": update_order_section,
+        "histpiescript": bscript,
+        "histpiechart": bdiv,
     }
 
 
@@ -88,7 +99,7 @@ async def get_historical_result(
     )
     sql_statement = str(sql_statement)
     print(sql_statement)
-    result = await asyncsession.execute(text(str(sql_statement)))
+    result = await asyncsession.exec(text(str(sql_statement)))
 
     if scalar:
         res = result.scalars().all()
@@ -134,7 +145,7 @@ async def get_users_fn(
             .limit(page_size)
         )
 
-    result = await transaction_remote.execute(query)
+    result = await transaction_remote.exec(query)
     if scalar:
         return result.scalars().all()
     else:
@@ -186,7 +197,7 @@ async def get_recent_orders(
             .offset((page_number - 1) * page_size)
             .limit(page_size)
         )
-    result = await transaction_remote.execute(query)
+    result = await transaction_remote.exe(query)
     if scalar:
         res = result.scalars().all()
         return res
@@ -216,7 +227,7 @@ async def last_order_id(transaction_remote: AsyncSession) -> int:
         .order_by(remote.Order.id.desc())
     )
     query = query.order_by(remote.User.id.asc()).limit(1)
-    result = await transaction_remote.execute(query)
+    result = await transaction_remote.exe(query)
     orderid = result.scalar().first()
     return orderid
 
@@ -235,7 +246,7 @@ async def get_batch_fn(
         )
     )
     print(query)
-    result = await transaction_remote.execute(query)
+    result = await transaction_remote.exe(query)
     return result.one()[0]
 
 
@@ -264,7 +275,7 @@ async def get_product_fn(
             .limit(page_size)
         )
 
-    result = await transaction_remote.execute(query)
+    result = await transaction_remote.exe(query)
     return result.all()
 
 
@@ -289,34 +300,47 @@ async def get_order_fn(
             .limit(page_size)
         )
 
-    result = await transaction_remote.execute(query)
+    result = await transaction_remote.exe(query)
     return result.all()
 
-async def plot_pie_chart(inputdataset,idkey="process_id", statuskey='process_status'):
+
+async def plot_pie_chart(inputdataset, idkey="process_id", statuskey="process_status"):
     dataset = pd.DataFrame.from_records(map(dict, inputdataset)).iloc[:, 1:]
     # Create a dictionary to map the status to a color
-    colors = {'Completed': 'green', 'Failed': 'red', 'In Progress': 'orange'}
+    colors = {"Completed": "green", "Failed": "red", "In Progress": "orange"}
     # Group the dataset by status
     data = dataset.groupby(statuskey).count().reset_index()
     # Add a column for the angle of each wedge
-    data['angle'] = data[idkey]/data[idkey].sum() * 2*3.14
+    data["angle"] = data[idkey] / data[idkey].sum() * 2 * 3.14
     # Add a column for the color of each wedge
-    data['color'] = [colors[x] for x in data[statuskey]]
+    data["color"] = [colors[x] for x in data[statuskey]]
     # Create a ColumnDataSource object
     source = ColumnDataSource(data)
     # Create a figure object
-    plot = figure(height=350, title="Job Status", toolbar_location=None,
-    tools="hover", tooltips="@process_status: @process_id")
+    plot = figure(
+        height=350,
+        title="Job Status",
+        toolbar_location=None,
+        tools="hover",
+        tooltips="@process_status: @process_id",
+    )
     # Add the wedges to the plot
-    plot.wedge(x=0, y=1, radius=0.4,
-    start_angle=cumsum('angle', include_zero=True),
-    end_angle=cumsum('angle'),
-    line_color="white", fill_color='color', legend_field='process_status', source=source)
+    plot.wedge(
+        x=0,
+        y=1,
+        radius=0.4,
+        start_angle=cumsum("angle", include_zero=True),
+        end_angle=cumsum("angle"),
+        line_color="white",
+        fill_color="color",
+        legend_field="process_status",
+        source=source,
+    )
     # Remove the axis labels and grid lines
     plot.axis.axis_label = None
     plot.axis.visible = False
     plot.grid.grid_line_color = None
-    curdoc().theme = 'dark_minimal'
+    curdoc().theme = "dark_minimal"
     plot.background_fill_color = "white"
     plot.background_fill_alpha = 0
     plot.min_border_left = 1
@@ -324,7 +348,7 @@ async def plot_pie_chart(inputdataset,idkey="process_id", statuskey='process_sta
     plot.plot.min_border_top = 1
     plot.min_border_bottom = 1
     plot.border_fill_color = "white"
-    plot.border_fill_alpha =  0
+    plot.border_fill_alpha = 0
     plot.outline_line_width = 7
     plot.outline_line_width = 7
     plot.outline_line_alpha = 0
@@ -333,7 +357,12 @@ async def plot_pie_chart(inputdataset,idkey="process_id", statuskey='process_sta
     # Show the plot
 
 
-async def plot_pie_chartX(inputdataset,idkey="process_id", statuskey='process_status', colors = {'Completed': 'green', 'Failed': 'red', 'In Progress': 'orange'}):
+async def plot_pie_chartX(
+    inputdataset,
+    idkey="process_id",
+    statuskey="process_status",
+    colors={"Completed": "green", "Failed": "red", "In Progress": "orange"},
+):
 
     m = StatuSHistory(process_id=1, process_status="Completed")
     m1 = StatuSHistory(process_id=2, process_status="Failed")
@@ -345,36 +374,45 @@ async def plot_pie_chartX(inputdataset,idkey="process_id", statuskey='process_st
     inputdataset.append(m2)
     inputdataset.append(m3)
     inputdataset.append(m4)
-    
-    
+
     dataset = pd.DataFrame.from_records(map(dict, inputdataset)).iloc[:, 1:]
-  
+
     # Create a dictionary to map the status to a color
-    #colors = {'Completed': 'green', 'Failed': 'red', 'In Progress': 'orange'}
+    # colors = {'Completed': 'green', 'Failed': 'red', 'In Progress': 'orange'}
     # Group the dataset by status
     data = dataset.groupby(statuskey).count().reset_index()
 
-
-
     # Add a column for the angle of each wedge
-    data['angle'] = data[idkey]/data[idkey].sum() * 2*3.14
+    data["angle"] = data[idkey] / data[idkey].sum() * 2 * 3.14
     # Add a column for the color of each wedge
-    data['color'] = [colors[x] for x in data[statuskey]]
+    data["color"] = [colors[x] for x in data[statuskey]]
     # Create a ColumnDataSource object
     source = ColumnDataSource(data)
     # Create a figure object
-    plot = figure(height=350, title="Job Status", toolbar_location=None,
-    tools="hover", tooltips=f"@{statuskey}: @{idkey}")
+    plot = figure(
+        height=350,
+        title="Job Status",
+        toolbar_location=None,
+        tools="hover",
+        tooltips=f"@{statuskey}: @{idkey}",
+    )
     # Add the wedges to the plot
-    plot.wedge(x=0, y=1, radius=0.4,
-    start_angle=cumsum('angle', include_zero=True),
-    end_angle=cumsum('angle'),
-    line_color="white", fill_color='color', legend_field=statuskey, source=source)
+    plot.wedge(
+        x=0,
+        y=1,
+        radius=0.4,
+        start_angle=cumsum("angle", include_zero=True),
+        end_angle=cumsum("angle"),
+        line_color="white",
+        fill_color="color",
+        legend_field=statuskey,
+        source=source,
+    )
     # Remove the axis labels and grid lines
     plot.axis.axis_label = None
     plot.axis.visible = False
     plot.grid.grid_line_color = None
-    curdoc().theme = 'dark_minimal'
+    curdoc().theme = "dark_minimal"
     plot.background_fill_color = "white"
     plot.background_fill_alpha = 0
     plot.min_border_left = 1
@@ -382,23 +420,29 @@ async def plot_pie_chartX(inputdataset,idkey="process_id", statuskey='process_st
     plot.plot.min_border_top = 1
     plot.min_border_bottom = 1
     plot.border_fill_color = "white"
-    plot.border_fill_alpha =  0
+    plot.border_fill_alpha = 0
     plot.outline_line_width = 7
     plot.outline_line_alpha = 0
     plot.outline_line_color = "white"
     plot.legend.background_fill_alpha = 0.0
     script, div = components(plot)
-    soup = BeautifulSoup(div, 'html.parser')
-    div_tag = soup.find('div')
+    soup = BeautifulSoup(div, "html.parser")
+    div_tag = soup.find("div")
 
-    id_value = div_tag['id']
-    data_root_id_value = div_tag['data-root-id']
+    id_value = div_tag["id"]
+    data_root_id_value = div_tag["data-root-id"]
     script = script.replace(data_root_id_value, "p0006")
     script = script.replace(id_value, "histplotguid")
-    return script,div
+    return script, div
     # Show the plot
 
-def get_sesssion_for_transaction(dbid : str = "Remote",transaction_remote: AsyncSession = None,transaction_remote1: AsyncSession = None,transaction_local: AsyncSession= None):
+
+def get_sesssion_for_transaction(
+    dbid: str = "Remote",
+    transaction_remote: AsyncSession = None,
+    transaction_remote1: AsyncSession = None,
+    transaction_local: AsyncSession = None,
+):
     if dbid.lower() == "remote":
         return transaction_remote
     elif dbid.lower() == "remote1":
@@ -409,12 +453,25 @@ def get_sesssion_for_transaction(dbid : str = "Remote",transaction_remote: Async
         return transaction_local
 
 
+def get_non_async_sesssion_for_transaction(
+    dbid: str = "Remote",
+    request: Request = None,
+):
+    if dbid.lower() == "remote":
+        constring = request.app.state["remote_con_str"].replace("+aioodbc", "+pyodbc")
+    elif dbid.lower() == "remote1":
+        constring = request.app.state["remote_con_str1"].replace("+aioodbc", "+pyodbc")
+    engine = create_engine(constring, echo=False)
+    return engine
+  
+
+
+
 
 async def get_tables_list(
     request: Request, trans: AsyncSession, db_id: str, force_refresh: bool = False
 ) -> list[str]:
-
-    trd = request.app.stores.get("tempdatard")
+    trd = request.app.stores.get("memeory")
     tablelist_pickle = await trd.get(f"{db_id}_tables")
     if not tablelist_pickle or force_refresh == "true":
         context = {
@@ -429,7 +486,7 @@ async def get_tables_list(
         )
         sql_statement = str(sql_statement)
         print(sql_statement)
-        result = await trans.execute(text(str(sql_statement)))
+        result = await trans.exec(text(str(sql_statement)))
         table_list = [row[0] for row in result.all()]
         await trd.set(
             f"{db_id}_tables",
@@ -450,28 +507,30 @@ async def get_clean_table_name(full_name: str) -> str:
     return table_name
 
 
-def read_batch_date_file() -> date:
+async def read_batch_date_file() -> date:
     file_path: str = "/home/deck/devlopment/demo/batch_date.txt"
     with open(file_path, "r") as file:
         batch_date_str = file.read().strip()
         batch_date = pendulum.from_format(batch_date_str, "YYYYMMDD").date()
         return batch_date
 
+
 async def validate_where(
     request: Request,
     trans: AsyncSession,
     db_id: str,
     table_name: str,
-    column_list : list[dict[str, str]],
+    column_list: list[dict[str, str]],
     additonal_where_clause: str,
 ) -> bool:
     context = {
-            "t_dialect": static.SConstants.db_dilects[db_id],
-            "db_name": static.SConstants.db_names[db_id],
-            "schema_name": static.SConstants.schema_names[db_id],
-            "table_name": await get_clean_table_name(table_name),
-            "column_list": column_list,
-            "valid_where_clause": additonal_where_clause
+        "t_dialect": static.SConstants.db_dilects[db_id],
+        "db_name": static.SConstants.db_names[db_id],
+        "schema_name": static.SConstants.schema_names[db_id],
+        "table_name": await get_clean_table_name(table_name),
+        "uniq_column_list": column_list,
+        "column_list": column_list,
+        "valid_where_clause": additonal_where_clause,
     }
     context["column_list"] = column_list
     sql_statement = (
@@ -480,8 +539,8 @@ async def validate_where(
         .body.decode("utf-8")
     )
     try:
-        result = await trans.execute(text(str(sql_statement)))
-        ic(result.keys())
+        result = await trans.exec(text(str(sql_statement)))
+        # ic(result.keys())
     except Exception as e:
         print(e)
         return False
@@ -497,7 +556,7 @@ async def get_column_list(
     force_refresh: bool = False,
 ) -> list[dict[str, str]]:
 
-    trd = request.app.stores.get("tempdatard")
+    trd = request.app.stores.get("memory")
     table_clm_list_pickle = await trd.get(f"{db_id}_{table_name}_columnlist")
     context = {}
     if not table_clm_list_pickle or force_refresh == "true":
@@ -514,9 +573,8 @@ async def get_column_list(
         )
         sql_statement = str(sql_statement)
         print(sql_statement)
-        result = await trans.execute(text(str(sql_statement)))
+        result = await trans.exec(text(str(sql_statement)))
 
-        
         column_list = [
             {"column_name": row[0], "column_type": row[1]} for row in result.all()
         ]
@@ -547,7 +605,7 @@ async def get_unique_col_list(
     force_refresh: bool = False,
 ) -> list[dict[str, str]]:
 
-    trd = request.app.stores.get("tempdatard")
+    trd = request.app.stores.get("memory")
     table_clm_list_pickle = await trd.get(f"{db_id}_{table_name}_uniqcolumnlist")
     context = {}
     if not table_clm_list_pickle or force_refresh == "true":
@@ -564,14 +622,12 @@ async def get_unique_col_list(
         )
         sql_statement = str(sql_statement)
         print(sql_statement)
-        result = await trans.execute(text(str(sql_statement)))
+        result = await trans.exec(text(str(sql_statement)))
 
-        column_list_d = [
-            row._asdict() for row in result.all()
-        ]
+        column_list_d = [row._asdict() for row in result.all()]
         column_list = [row["Column_name"] for row in column_list_d]
 
-        ic(column_list)
+        # ic(column_list)
         await trd.set(
             f"{db_id}_{table_name}_uniqcolumnlist",
             pickle.dumps(column_list),
@@ -579,7 +635,7 @@ async def get_unique_col_list(
         )
     else:
         column_list = pickle.loads(table_clm_list_pickle)
-    #context["column_list"] = column_list
+    # context["column_list"] = column_list
     # sql_statement = (
     #     Template(template_name="sql/get_table_hash.txt", context=context)
     #     .to_asgi_response(request.app, request)
@@ -589,52 +645,58 @@ async def get_unique_col_list(
     return column_list
 
 
-
-
-
-
 async def upsert_record(a_session: AsyncSession, record: T) -> T:
     a_session.add(record)
     await a_session.commit()
     return record
 
+
 async def update_record(a_session: AsyncSession, record: SQLModel, pk: list[str]) -> T:
-    fieldlist = [k for k, v in TCompareModel.__annotations__.items()]
+    fieldlist = [k for k, v in Tcomparemodel.__annotations__.items()]
     # Create a dictionary of key-value pairs for the primary key
     pk_values = {key: getattr(record, key) for key in pk}
     db_object = await a_session.get(type(record), pk_values)
     if db_object:
-        
-        model_deump_dict = record.model_dump(exclude_unset=True)
+        model_deump_dict = record.model_dump()
+        #model_deump_dict = record.model_dump(exclude_unset=True)
+        ic(model_deump_dict.items())
         for key, value in model_deump_dict.items():
+            ic(key)
             if key in fieldlist:
+                if key == 'left_pivot_choice':
+                    ic(key)
                 setattr(db_object, key, value)
         a_session.add(db_object)
         await a_session.commit()
-        #await a_session.refresh(db_object)
+        # await a_session.refresh(db_object)
         return db_object
     else:
         for key in pk:
-            if getattr(record, key) == 'None' or getattr(record, key) == '':
+            if getattr(record, key) == "None" or getattr(record, key) == "":
                 setattr(record, key, None)
-        ic(record)
+        # ic(record)
         a_session.add(record)
         await a_session.commit()
-        ic(record)
+        # ic(record)
         return record
 
 
-
-async def upsert_recordX(request :Request, a_session: AsyncSession, record: T) -> T:
+async def upsert_recordX(request: Request, a_session: AsyncSession, record: T) -> T:
     connect_args = {"check_same_thread": False}
-    engine = create_engine(request.app.state['local_con_str'].replace('+aiosqlite',''), echo=True, connect_args=connect_args)
+    engine = create_engine(
+        request.app.state["local_con_str"].replace("+aiosqlite", ""),
+        echo=True,
+        connect_args=connect_args,
+    )
     with Session(engine) as session:
         rec = session.get(record, record.config_name)
         session.add(rec)
         session.commit()
         return record
-    
+
+
 async def upsert_records(a_session: AsyncSession, records: list[T]) -> list[T]:
+    ic(records)
     a_session.add_all(records)
     await a_session.commit()
     return records
@@ -647,7 +709,7 @@ async def process_compare_post(
     transaction_remote1: AsyncSession,
     transaction_local: AsyncSession,
     CLIENT_SESSION_ID: Optional[str],
-    save_model : bool = False
+    save_model: bool = False,
 ):
     bdata = benedict(data)
     column_to_exclude = []  # New list to store keys starting with "exm"
@@ -655,14 +717,13 @@ async def process_compare_post(
     column_to_exclude = [
         key.replace("exclm_", "") for key in bdata.keys() if key.startswith("exclm_")
     ]
-    ic(column_to_exclude)
+    # ic(column_to_exclude)
     unique_columns = []
     unique_columns = [
-        key.replace("uniqclm_", "") for key in bdata.keys() if key.startswith("uniqclm_")
+        key.replace("uniqclm_", "")
+        for key in bdata.keys()
+        if key.startswith("uniqclm_")
     ]
-
-
-
 
     force_refresh = False
     if not request.session.get("CLIENT_SESSION_ID"):
@@ -670,20 +731,18 @@ async def process_compare_post(
         force_refresh = True
     benecontext = benedict()
     main_compare_types = {}
-    ic(bdata)
+    # ic(bdata)
 
-    #data_compare_p = TCompareModel(**bdata)
-    data_compare = TCompareModel(**bdata) 
-    #data_compare = TCompareModel()
-
-    
-
+    # data_compare_p = Tcomparemodel(**bdata)
+    data_compare = Tcomparemodel(**bdata)
+    # data_compare = Tcomparemodel()
 
     if len(data_compare.columns_to_exclude_str) > 0:
-        column_to_exclude = column_to_exclude + json_to_list(data_compare.columns_to_exclude_str)
+        column_to_exclude = column_to_exclude + json_to_list(
+            data_compare.columns_to_exclude_str
+        )
     else:
         data_compare.columns_to_exclude_str = list_to_json(column_to_exclude)
-
 
     if len(data_compare.unique_columns_str) > 0:
         unique_columns = unique_columns + json_to_list(data_compare.unique_columns_str)
@@ -699,44 +758,26 @@ async def process_compare_post(
     unique_columns_left: list = []
     unique_columns_right: list = []
 
-    if data_compare.left_db != "Select Database" and data_compare.left_db != "":
-        trans_seession = get_sesssion_for_transaction(data_compare.left_db,transaction_remote,transaction_remote1)
-        tables = await get_tables_list(
-            request, trans_seession, data_compare.left_db, force_refresh
-        )
-        benecontext["common.left.tables"] = tables
-    else:
-        benecontext["common.left.tables"] = []
-
-    if data_compare.right_db != "Select Database" and data_compare.right_db != "":
-        trans_seession = get_sesssion_for_transaction(data_compare.right_db,transaction_remote,transaction_remote1)
-        tables = await get_tables_list(
-            request, trans_seession, data_compare.right_db, force_refresh
-        )
-        benecontext["common.right.tables"] = tables
-    else:
-        benecontext["common.right.tables"] = []
-
-    if data_compare.left_tbl != "Select Table" and data_compare.left_tbl != "":
-        trans_seession = get_sesssion_for_transaction(data_compare.left_db,transaction_remote,transaction_remote1)
-        columns_left = await get_column_list(
-            request, trans_seession, data_compare.left_db, data_compare.left_tbl
-        )
-        unique_columns_left = await get_unique_col_list(
-            request, trans_seession, data_compare.left_db, data_compare.left_tbl
-        )
-
-    if data_compare.right_tbl != "Select Table" and data_compare.right_tbl != "":
-        trans_seession = get_sesssion_for_transaction(data_compare.right_db,transaction_remote,transaction_remote1)
-        columns_right = await get_column_list(
-            request, trans_seession, data_compare.right_db, data_compare.right_tbl
-        )
-        unique_columns_right = await get_unique_col_list(
-            request, trans_seession, data_compare.right_db, data_compare.right_tbl
-        )
-
-    unique_columns = list(set(unique_columns + unique_columns_left + unique_columns_right))
-    data_compare.unique_columns_str = list_to_json(unique_columns)
+    (
+        data_compare,
+        columns_left,
+        columns_right,
+        unique_columns_left,
+        unique_columns_right,
+        unique_columns,
+    ) = await process_db_tbl_columns(
+        request,
+        transaction_remote,
+        transaction_remote1,
+        unique_columns,
+        force_refresh,
+        benecontext,
+        data_compare,
+        columns_left,
+        columns_right,
+        unique_columns_left,
+        unique_columns_right,
+    )
 
     common_columns = []
     benecontext["common.left.columns"] = columns_left
@@ -748,8 +789,6 @@ async def process_compare_post(
         common_columns = [column for column in column_l_list if column in column_r_list]
         data_compare.common_columns_str = list_to_json(common_columns)
 
-
-    
     message = ""
     ##Validation
     if (
@@ -764,81 +803,25 @@ async def process_compare_post(
     ):
         message = "No common columns found between the selected tables. Please select another table or database.<br>"
 
-
-    #This is to validate the model and then save
+    # This is to validate the model and then save
     if save_model:
-        message=""
-        try:
-            TCompareModel.model_validate(data_compare)
-        except ValueError as e:
-            if '[' in str(e):
-               ic(str(e))
-               msg = str(e).split('⚠️')[1].strip()
-            else:
-                msg = str(e)
-            message = message + msg + "<br>"
-
-
-                
-
- 
-        if len(columns_left) > 0 and len(data_compare.left_where_clause) > 0:
-            trans_seession = get_sesssion_for_transaction(data_compare.left_db,transaction_remote,transaction_remote1)
-            validate_where_clause = await validate_where(
-                request, trans_seession, data_compare.left_db, data_compare.left_tbl, columns_left, data_compare.left_where_clause
-            )
-            if not validate_where_clause:
-                message = message + "Left Additonal Where Clause is not valid.<br>"
-
-        if len(columns_right) > 0 and len(data_compare.right_where_clause) > 0:
-            trans_seession = get_sesssion_for_transaction(data_compare.right_db,transaction_remote,transaction_remote1)
-            validate_where_clause = await validate_where(
-                request, trans_seession, data_compare.right_db, data_compare.right_tbl, columns_right, data_compare.right_where_clause
-            )
-            if not validate_where_clause:
-                message = message + "Right Additonal Where Clause is not valid.<br>"
-
-        if not check_three_vars(data_compare.left_pivot_choice,data_compare.left_pivot_column,data_compare.left_pivot_format):
-            message = message + "Left Pivot Choice, Pivot Column and Pivot Format should be all selected or all none of them should be used.<br>"
-            if data_compare.left_pivot_choice != "":
-                data_compare.left_pivot_choice = ""
-            if data_compare.left_pivot_format != "":
-                data_compare.left_pivot_format = ""
-        else:
-            if data_compare.left_pivot_column != "" and data_compare.left_pivot_column not in column_l_list:
-                message = message + "Left Pivot Column is not in the selected table.<br>"
-
-            else:
-                if data_compare.left_pivot_choice == "custom" and data_compare.left_custom_pivot_value == "":
-                    message = message + "Left Custom Pivot Value is required.<br>"
-
-        if not check_three_vars(data_compare.right_pivot_choice,data_compare.right_pivot_column,data_compare.right_pivot_format):
-            message = message + "Right Pivot Choice, Pivot Column and Pivot Format should be all selected or all none of them should be used.<br>"
-            if data_compare.left_pivot_choice != "":
-                data_compare.right_pivot_choice = ""
-                if data_compare.right_pivot_format != "":
-                    data_compare.right_pivot_format = ""
-        else:
-            if  data_compare.right_pivot_column != "" and data_compare.right_pivot_column not in column_r_list:
-                message = message + "Right Pivot Column is not in the selected table.<br>"
-            else:
-                if data_compare.right_pivot_choice == "custom" and data_compare.right_custom_pivot_value == "":
-                    message = message + "Right Custom Pivot Value is required.<br>"
-        
-        if message == "":
-            ic(data_compare)
-            if data_compare.left_pivot_format.lower().startswith("select"):
-                data_compare.left_pivot_format = ""
-            if data_compare.right_pivot_format.lower().startswith("select"):
-                data_compare.right_pivot_format = ""
-
-            data_compare = await update_record(transaction_local, data_compare, ["id"])
-            message = "Model Saved Successfully"
+        data_compare, message = await save_model_to_db(
+            request,
+            message,
+            transaction_remote,
+            transaction_remote1,
+            transaction_local,
+            data_compare,
+            columns_left,
+            columns_right,
+            column_l_list,
+            column_r_list,
+        )
 
     benecontext["toastmessage"] = message
 
     # Valdation Ends
-    ic(CLIENT_SESSION_ID)
+    # ic(CLIENT_SESSION_ID)
     benecontext["id"] = data_compare.id
     benecontext["config_name"] = data_compare.config_name
     benecontext["main_compare_types"] = main_compare_types
@@ -849,12 +832,12 @@ async def process_compare_post(
     benecontext["column_to_exclude"] = data_compare.columns_to_exclude
     benecontext["unique_columns"] = data_compare.unique_columns
 
-    try:
-        benecontext["t_compare_objects"] = dict(data_compare)
-    except Exception as e:
-            jsonstr = data_compare.model_dump_json()
-            json_dict = json.loads(jsonstr)
-            benecontext["t_compare_objects"] = json_dict
+    # try:
+    #     benecontext["t_compare_objects"] = dict(data_compare)
+    # except Exception as e:
+    jsonstr = data_compare.model_dump_json()
+    json_dict = json.loads(jsonstr)
+    benecontext["t_compare_objects"] = json_dict
 
     benecontext["common.left.db"] = data_compare.left_db
     benecontext["common.right.db"] = data_compare.right_db
@@ -869,10 +852,645 @@ async def process_compare_post(
     benecontext["common.left.where_clause"] = data_compare.left_where_clause
     benecontext["common.right.where_clause"] = data_compare.right_where_clause
     benecontext["common.left.custom_pivot_value"] = data_compare.left_custom_pivot_value
-    benecontext["common.right.custom_pivot_value"] = data_compare.right_custom_pivot_value
+    benecontext["common.right.custom_pivot_value"] = (
+        data_compare.right_custom_pivot_value
+    )
 
-
-
-    ic(data_compare)
-    ic(benecontext)
+    # ic(data_compare)
+    # ic(benecontext)
     return benecontext
+
+
+async def save_model_to_db(
+    request,
+    message,
+    transaction_remote,
+    transaction_remote1,
+    transaction_local,
+    data_compare,
+    columns_left,
+    columns_right,
+    column_l_list,
+    column_r_list,
+):
+    try:
+        Tcomparemodel.model_validate(data_compare)
+    except ValueError as e:
+        if "[" in str(e):
+            # ic(str(e))
+            if "X" in str(e):
+                msg = str(e).split("⚠️")[1].strip()
+            else:
+                msg = str(e).split("[")[0].replace("for Tcomparemodel", "")
+        else:
+            msg = str(e)
+        message = message + msg + "<br>"
+
+    if len(columns_left) > 0 and len(data_compare.left_where_clause) > 0:
+        trans_seession = get_sesssion_for_transaction(
+            data_compare.left_db, transaction_remote, transaction_remote1
+        )
+        validate_where_clause = await validate_where(
+            request,
+            trans_seession,
+            data_compare.left_db,
+            data_compare.left_tbl,
+            columns_left,
+            data_compare.left_where_clause,
+        )
+        if not validate_where_clause:
+            message = message + "Left Additonal Where Clause is not valid.<br>"
+
+    if len(columns_right) > 0 and len(data_compare.right_where_clause) > 0:
+        trans_seession = get_sesssion_for_transaction(
+            data_compare.right_db, transaction_remote, transaction_remote1
+        )
+        validate_where_clause = await validate_where(
+            request,
+            trans_seession,
+            data_compare.right_db,
+            data_compare.right_tbl,
+            columns_right,
+            data_compare.right_where_clause,
+        )
+        if not validate_where_clause:
+            message = message + "Right Additonal Where Clause is not valid.<br>"
+
+    if not check_three_vars(
+        data_compare.left_pivot_choice,
+        data_compare.left_pivot_column,
+        data_compare.left_pivot_format,
+    ):
+        message = (
+            message
+            + "Left Pivot Choice, Pivot Column and Pivot Format should be all selected or all none of them should be used.<br>"
+        )
+        if data_compare.left_pivot_choice != "":
+            data_compare.left_pivot_choice = ""
+        if data_compare.left_pivot_format != "":
+            data_compare.left_pivot_format = ""
+    else:
+        if (
+            data_compare.left_pivot_column != ""
+            and data_compare.left_pivot_column not in column_l_list
+        ):
+            message = message + "Left Pivot Column is not in the selected table.<br>"
+
+        else:
+            if (
+                data_compare.left_pivot_choice == "custom"
+                and data_compare.left_custom_pivot_value == ""
+            ):
+                message = message + "Left Custom Pivot Value is required.<br>"
+
+    if not check_three_vars(
+        data_compare.right_pivot_choice,
+        data_compare.right_pivot_column,
+        data_compare.right_pivot_format,
+    ):
+        message = (
+            message
+            + "Right Pivot Choice, Pivot Column and Pivot Format should be all selected or all none of them should be used.<br>"
+        )
+        if data_compare.right_pivot_choice != "":
+            data_compare.right_pivot_choice = ""
+        if data_compare.right_pivot_format != "":
+            data_compare.right_pivot_format = ""
+    else:
+        if (
+            data_compare.right_pivot_column != ""
+            and data_compare.right_pivot_column not in column_r_list
+        ):
+            message = message + "Right Pivot Column is not in the selected table.<br>"
+        else:
+            if (
+                data_compare.right_pivot_choice == "custom"
+                and data_compare.right_custom_pivot_value == ""
+            ):
+                message = message + "Right Custom Pivot Value is required.<br>"
+
+    if message == "":
+        # ic(data_compare)
+        if data_compare.left_pivot_format.lower().startswith("select"):
+            data_compare.left_pivot_format = ""
+        if data_compare.right_pivot_format.lower().startswith("select"):
+            data_compare.right_pivot_format = ""
+
+        if data_compare.left_custom_pivot_value:
+            data_compare.left_custom_pivot_value = pendulum.parse(
+                data_compare.left_custom_pivot_value
+            ).date()
+
+        if data_compare.right_custom_pivot_value:
+            data_compare.right_custom_pivot_value = pendulum.parse(
+                data_compare.right_custom_pivot_value
+            ).date()
+
+        data_compare = await update_record(transaction_local, data_compare, ["id"])
+        message = "Model Saved Successfully"
+    return data_compare, message
+
+
+async def process_db_tbl_columns(
+    request,
+    transaction_remote,
+    transaction_remote1,
+    unique_columns,
+    force_refresh,
+    benecontext,
+    data_compare,
+    columns_left,
+    columns_right,
+    unique_columns_left,
+    unique_columns_right,
+):
+    if data_compare.left_db != "Select Database" and data_compare.left_db != "":
+        trans_seession = get_sesssion_for_transaction(
+            data_compare.left_db, transaction_remote, transaction_remote1
+        )
+        tables = await get_tables_list(
+            request, trans_seession, data_compare.left_db, force_refresh
+        )
+        benecontext["common.left.tables"] = tables
+    else:
+        benecontext["common.left.tables"] = []
+
+    if data_compare.right_db != "Select Database" and data_compare.right_db != "":
+        trans_seession = get_sesssion_for_transaction(
+            data_compare.right_db, transaction_remote, transaction_remote1
+        )
+        tables = await get_tables_list(
+            request, trans_seession, data_compare.right_db, force_refresh
+        )
+        benecontext["common.right.tables"] = tables
+    else:
+        benecontext["common.right.tables"] = []
+
+    if data_compare.left_tbl != "Select Table" and data_compare.left_tbl != "":
+        trans_seession = get_sesssion_for_transaction(
+            data_compare.left_db, transaction_remote, transaction_remote1
+        )
+        columns_left = await get_column_list(
+            request, trans_seession, data_compare.left_db, data_compare.left_tbl
+        )
+        unique_columns_left = await get_unique_col_list(
+            request, trans_seession, data_compare.left_db, data_compare.left_tbl
+        )
+
+    if data_compare.right_tbl != "Select Table" and data_compare.right_tbl != "":
+        trans_seession = get_sesssion_for_transaction(
+            data_compare.right_db, transaction_remote, transaction_remote1
+        )
+        columns_right = await get_column_list(
+            request, trans_seession, data_compare.right_db, data_compare.right_tbl
+        )
+        unique_columns_right = await get_unique_col_list(
+            request, trans_seession, data_compare.right_db, data_compare.right_tbl
+        )
+
+    unique_columns = list(
+        set(unique_columns + unique_columns_left + unique_columns_right)
+    )
+    data_compare.unique_columns_str = list_to_json(unique_columns)
+    return (
+        data_compare,
+        columns_left,
+        columns_right,
+        unique_columns_left,
+        unique_columns_right,
+        unique_columns,
+    )
+
+
+# async def refresh_status_run_tbl(request:Request, asyncsession: AsyncSession,config_id: int,channels: ChannelsPlugin,sendone=False) -> None:
+#     btlist = []
+#     cur_last_run_id = 0
+#     if not sendone:
+#         trd = request.app.stores.get("memeory")
+#         last_scr = await trd.get(f"last_scr_{config_id}")
+#         if not last_scr:
+#             last_scr = 0
+#         ic(last_scr)
+#         statement = select(Tschduledcomparerunmodel).where(col(Tschduledcomparerunmodel.id) > int(last_scr) , col(Tschduledcomparerunmodel.tcomparemodel_id) == config_id).order_by(Tschduledcomparerunmodel.id.desc()).limit(10)
+#         run_statuses = await asyncsession.exec(statement)
+#         bt = benedict()
+#         for run_row in run_statuses.all():
+#             if cur_last_run_id == 0:
+#                 cur_last_run_id = run_row.id
+#             btlist.append(run_row.model_dump())
+#     else:
+#         statement = select(Tschduledcomparerunmodel).where(col(Tschduledcomparerunmodel.tcomparemodel_id) == config_id).order_by(Tschduledcomparerunmodel.id.desc()).limit(1)
+#         run_statuses = await asyncsession.exec(statement)
+#         btlist.append(run_statuses.one().model_dump())
+#     context = {
+#         "config_run_id_tbl": btlist,
+#         "config_id": config_id
+#     }
+#     fragment_response=Template(template_name='fragments/scr_table_row.html',context=context).to_asgi_response(request.app,request=request)
+
+#     ic(fragment_response.body.decode('utf-8'))
+#     if cur_last_run_id > 0 or sendone:
+#         if channels:
+#             channels.publish(fragment_response.body.decode('utf-8'),channels=[f'ws_chnl_compare_runs_{config_id}'])
+#     if cur_last_run_id > 0:
+#         await trd.set(f"last_scr_{config_id}", cur_last_run_id)
+
+
+##There is better way to do this, above not working. I will update this later
+async def refresh_status_run_tbl(
+    request: Request,
+    asyncsession: AsyncSession,
+    config_id: int,
+    channels: ChannelsPlugin,
+    sendone=False,
+) -> None:
+    btlist = []
+    statement = (
+        select(Tschduledcomparerunmodel)
+        .where(col(Tschduledcomparerunmodel.tcomparemodel_id) == config_id)
+        .order_by(Tschduledcomparerunmodel.id.desc())
+        .limit(10)
+    )
+    run_statuses = await asyncsession.exec(statement)
+    for run_row in run_statuses.all():
+        btlist.append(run_row.model_dump())
+    context = {"config_run_id_tbl": btlist, "config_id": config_id}
+    fragment_response = Template(
+        template_name="fragments/scr_table_row.html", context=context
+    ).to_asgi_response(request.app, request=request)
+    ic(fragment_response.body.decode("utf-8"))
+    if channels:
+        channels.publish(
+            fragment_response.body.decode("utf-8"),
+            channels=[f"ws_chnl_compare_runs_{config_id}"],
+        )
+
+
+async def publish_log(request, channels, log_str, config_id, logtype="info"):
+    if channels:
+        if logtype == "info":
+            channels.publish(
+                f'<div id="terminal" hx-swap-oob="beforebegin:#terminallastrow"><pre data-prefix="$" hx-swap-oob="beforebegin:#terminallastrow"><code>{log_str}</code></pre></div>',
+                channels=[f"ws_chnl_compare_runs_{config_id}"],
+            )
+        elif logtype == "warning":
+            channels.publish(
+                f'<div id="terminal" hx-swap-oob="beforebegin:#terminallastrow"><pre data-prefix="$" hx-swap-oob="beforebegin:#terminallastrow" class="bg-warning text-warning-content"><code>{log_str}</code></pre></div>',
+                channels=[f"ws_chnl_compare_runs_{config_id}"],
+            )
+
+
+async def schedule_compare_run(
+    request: Request,
+    transaction_remote: AsyncSession,
+    transaction_remote1: AsyncSession,
+    transaction_local: AsyncSession,
+    config_id: int,
+    channels: ChannelsPlugin,
+) -> None:
+    l_tcomparemodel = await transaction_local.get(Tcomparemodel, config_id)
+
+    statement = select(Tschduledcomparerunmodel).where(
+        col(Tschduledcomparerunmodel.run_status) == "running",
+        col(Tschduledcomparerunmodel.tcomparemodel_id) == config_id,
+    )
+    running_status = await transaction_local.exec(statement)
+    if len(running_status.all()) > 0:
+        await publish_log(
+            request,
+            channels,
+            "Another run is in progress. Please wait for the current run to complete.",
+            config_id,
+            logtype="warning",
+        )
+        # asyncio.create_task(publish_log(request,channels,f'Another run is in progress for config id = {config_id}. Please wait for the current run to complete.',config_id,logtype="warning"))
+        ic("Another run is in progress. Please wait for the current run to complete.")
+        return
+
+    l_tschduledcomparerunmodel = Tschduledcomparerunmodel(
+        tcomparemodel=l_tcomparemodel,
+        run_status="running",
+        run_stat_time=pendulum.now(),
+    )
+    transaction_local.add(l_tschduledcomparerunmodel)
+    await transaction_local.commit()
+    await publish_log(
+        request,
+        channels,
+        f"run started for config id = {config_id}",
+        config_id,
+        logtype="info",
+    )
+    # asyncio.create_task(publish_log(request,channels,f'run started for config id = {config_id}',config_id,logtype="info"))
+    transaction_local.__init__(bind=transaction_local.bind)
+    await refresh_status_run_tbl(
+        request, transaction_local, config_id, channels, sendone=True
+    )
+    # asyncio.create_task(refresh_status_run_tbl(request,asyncsession,config_id,channels,sendone=True))
+    # await asyncio.sleep(30) 
+    await compare_objects_main(l_tcomparemodel,
+        request,
+        transaction_remote,
+        transaction_remote1,
+        transaction_local,
+        channels
+    )
+    # asyncio.create_task(compare_objects_main(l_tcomparemodel,request))
+    transaction_local.__init__(bind=transaction_local.bind)
+    l_tschduledcomparerunmodel.run_status = "completed"
+    l_tschduledcomparerunmodel.run_end_time = pendulum.now()
+    transaction_local.add(l_tschduledcomparerunmodel)
+    await transaction_local.commit()
+    transaction_local.__init__(bind=transaction_local.bind)
+    # await refresh_status_run_tbl(request,asyncsession,config_id,channels,sendone=True)
+    await refresh_status_run_tbl(
+        request, transaction_local, config_id, channels, sendone=True
+    )
+    # asyncio.create_task(refresh_status_run_tbl(request,asyncsession,config_id,channels,sendone=True))
+    await publish_log(
+        request,
+        channels,
+        f"run completed for config id = {config_id}",
+        config_id,
+        logtype="info",
+    )
+    # asyncio.create_task(publish_log(request,channels,f'run completed for config id = {config_id}',config_id,logtype="info"))
+
+
+async def compare_objects_main(
+    comparemodel: Tcomparemodel,
+    request: Request,
+    transaction_remote: AsyncSession,
+    transaction_remote1: AsyncSession,
+    transaction_local: AsyncSession,
+    channels: ChannelsPlugin
+):
+    if comparemodel.left_obj_type == "Table":
+        trans_seession_left = get_sesssion_for_transaction(
+            comparemodel.left_db, transaction_remote, transaction_remote1
+        )
+        sql_statement = await get_left_tbl_full_hash_sql(comparemodel, request, trans_seession_left)
+        print(sql_statement)
+        result = await trans_seession_left.exec(text(sql_statement)) 
+        hash_df1 = pd.DataFrame(result.fetchall())
+        ic(hash_df1)
+        
+
+    if comparemodel.right_obj_type == "Table":
+        trans_seession_right = get_sesssion_for_transaction(
+            comparemodel.right_db, transaction_remote, transaction_remote1
+        )
+        sql_statement = await get_right_tbl_full_hash_sql(comparemodel, request, trans_seession_right)
+        result = await trans_seession_right.exec(text(sql_statement))
+        hash_df2 = pd.DataFrame(result.fetchall())
+        ic(hash_df2)
+
+
+    #==============
+    full_count_first=len(hash_df1)
+    full_count_second=len(hash_df2)
+    await publish_log(request=request,channels=channels,log_str=f'Count for {comparemodel.left_tbl} in {comparemodel.left_db} is {full_count_first}',config_id=comparemodel.id,logtype="info")
+    await publish_log(request=request,channels=channels,log_str=f'Count for {comparemodel.right_tbl} in {comparemodel.right_db} is {full_count_first}',config_id=comparemodel.id,logtype="info")
+    df_matching = pd.merge(hash_df1, hash_df2, on=['ConcatenatedKeys', 'HashValue'], how='inner')
+    await publish_log(request=request,channels=channels,log_str=f'Common record Count is {len(df_matching)}',config_id=comparemodel.id,logtype="info")
+    await publish_log(request=request,channels=channels,log_str=f'Calculating mismatched records between two dataframes',config_id=comparemodel.id,logtype="info")
+    merged_df = pd.merge(hash_df1, hash_df2, on='ConcatenatedKeys', how='outer', suffixes=('_df1', '_df2'))
+    diff_df = merged_df[merged_df['HashValue_df1'] != merged_df['HashValue_df2']][['ConcatenatedKeys', 'HashValue_df1', 'HashValue_df2']]    
+    ic(diff_df)
+    if len(diff_df) > 0:
+        key_tbl_pd1=hash_df1[hash_df1['ConcatenatedKeys'].isin(diff_df['ConcatenatedKeys'])]['ConcatenatedKeys']
+        key_tbl_pd2=hash_df2[hash_df2['ConcatenatedKeys'].isin(diff_df['ConcatenatedKeys'])]['ConcatenatedKeys']
+
+        left_non_async_engine = get_non_async_sesssion_for_transaction(comparemodel.left_db,request)
+        left_sql_remove_table_for_hashstore = get_remove_sql_for_hashstore(comparemodel.left_db,comparemodel.left_tbl,request)
+        await trans_seession_left.exec(text(left_sql_remove_table_for_hashstore))
+        left_sql_create_table_for_hashstore = get_create_sql_for_hashstore(comparemodel.left_db,comparemodel.left_tbl,request)
+        await trans_seession_left.exec(text(left_sql_create_table_for_hashstore))
+        key_tbl_pd1.to_sql(f'{comparemodel.left_tbl}_key_tmp',con=left_non_async_engine,if_exists='replace', index=False)
+        sql_statement = await get_left_tbl_full_hash_sql(comparemodel, request, trans_seession_left,'yes')
+        print(sql_statement)
+        result = await trans_seession_left.exec(text(sql_statement)) 
+        hash_full_df1 = pd.DataFrame(result.fetchall())
+        await trans_seession_left.exec(text(left_sql_remove_table_for_hashstore))
+
+        right_non_async_engine = get_non_async_sesssion_for_transaction(comparemodel.right_db,request)
+        right_sql_remove_table_for_hashstore = get_remove_sql_for_hashstore(comparemodel.right_db,comparemodel.right_tbl,request)
+        await trans_seession_right.exec(text(right_sql_remove_table_for_hashstore))
+        right_sql_create_table_for_hashstore = get_create_sql_for_hashstore(comparemodel.right_db,comparemodel.right_tbl,request)
+        await trans_seession_right.exec(text(right_sql_create_table_for_hashstore))
+        key_tbl_pd2.to_sql(f'{comparemodel.right_tbl}_key_tmp',con=right_non_async_engine,if_exists='replace', index=False)
+        sql_statement = await get_right_tbl_full_hash_sql(comparemodel, request, trans_seession_right,'yes')
+        print(sql_statement)
+        result = await trans_seession_right.exec(text(sql_statement)) 
+        hash_full_df2 = pd.DataFrame(result.fetchall())
+        ic(hash_full_df2)
+        await trans_seession_right.exec(text(right_sql_remove_table_for_hashstore))
+    
+
+    #transaction_remote.__init__(bind=transaction_remote.bind)
+
+    #===============
+    df1_extra,df2_extra = get_extra_rows_using_hash(hash_df1, hash_df2)
+    ic(df1_extra)
+    ic(df2_extra)
+    common_df = get_common_rows(hash_df1, hash_df2, ["ConcatenatedKeys"])
+   
+
+    mismatched_df = find_mismatched_rows(
+        hash_df1[["ConcatenatedKeys", "HashValue"]].copy(),
+        hash_df2[["ConcatenatedKeys", "HashValue"]].copy(),
+    )
+    ic(hash_full_df1)
+    ic(hash_full_df2)
+    mismatched_dict = compare_mismatched_rows(hash_full_df1, hash_full_df2, mismatched_df)
+    ic(mismatched_dict)
+
+    common_df.set_index('ConcatenatedKeys', inplace=False)
+    ic(common_df)
+    passed_col_df = pd.DataFrame(columns=['column_name', 'ConcatenatedKeys', 'value_df1', 'value_df2'])
+    ic(passed_col_df)
+
+
+    # passed_benedict_list : list[benedict] = []
+
+    # for column in df1.columns:
+    #     #ic(column)
+    #     for index, common_row in common_df.head(10).iterrows():
+    #                 # New row as a DataFrame
+    #         item =  benedict()
+    #         item.column_name = column
+    #         item.ConcatenatedKeys = common_row.ConcatenatedKeys
+    #         item.value_df1 = common_row[f'{column}_x']
+    #         item.value_df2 = common_row[f'{column}_y']
+    #         passed_benedict_list.append(item)
+    # passed_col_df = pd.DataFrame(passed_benedict_list)
+
+
+    # with pd.ExcelWriter("output.xlsx", engine="xlsxwriter") as writer:
+    #     # Create a new dataframe with the column names from df1
+    #     summary_df = pd.DataFrame({"ColumnName": df1.columns})
+
+    #     # Write the dataframe to the Excel sheet
+    #     summary_df["MatchedRowsCount"] = summary_df["ColumnName"].apply(
+    #         lambda col: len(common_df)
+    #         - (len(mismatched_dict[col]) if col in mismatched_dict else 0)
+    #     )
+    #     summary_df["MisMatchedRowsCount"] = summary_df["ColumnName"].apply(
+    #         lambda col: (len(mismatched_dict[col]) if col in mismatched_dict else 0)
+    #     )
+
+    #     summary_df["ExtraInFirst"] = summary_df["ColumnName"].apply(
+    #         lambda col: len(extra_df1)
+    #     )
+    #     summary_df["ExtraInSecond"] = summary_df["ColumnName"].apply(
+    #         lambda col: len(extra_df2)
+    #     )
+
+    #     summary_df["TotalRowsInFirst"] = len(df1)
+    #     summary_df["TotalRowsInSecond"] = len(df2)
+
+    #     summary_df.to_excel(writer, sheet_name="Summary", index=False)
+    #     passed_col_df.to_excel(writer, sheet_name="PassRecordSummary", index=False)
+
+
+    #     for column_name, differ_items in mismatched_dict.items():
+    #         mismatched_df = pd.DataFrame(columns=['ConcatenatedKeys', 'value_df1', 'value_df2'])
+    #         mismatched_bendict_list : list[benedict] = []
+    #         for dit in differ_items:
+    #             item =  benedict()
+    #             item.ConcatenatedKeys = dit.ConcatenatedKeys
+    #             item.value_df1 = dit.df1_value
+    #             item.value_df2 = dit.df2_value
+    #             mismatched_bendict_list.append(item)
+    #         mismatched_df = pd.DataFrame(mismatched_bendict_list)
+    #         mismatched_df.to_excel(writer, sheet_name=f"{column_name}_miss", index=False)
+
+
+
+def get_sql_for_hashstore(db_id,table_name,request:Request,template_name):
+    schema_name = static.SConstants.schema_names[db_id]
+    db_name = static.SConstants.db_names[db_id]
+    t_dialect = static.SConstants.db_dilects[db_id]
+    l_context = {
+            "t_dialect":static.SConstants.db_dilects[db_id],
+            "db_name": static.SConstants.db_names[db_id],
+            "schema_name": static.SConstants.schema_names[db_id],
+            "table_name":table_name
+        }
+    sql_statement = (
+            Template(template_name=template_name, context=l_context)
+            .to_asgi_response(request.app, request)
+            .body.decode("utf-8")
+        )
+    return sql_statement
+
+def get_create_sql_for_hashstore(db_id,table_name,request:Request):
+    return get_sql_for_hashstore(db_id,table_name,request,"sql/add_key_tbl.txt")
+    
+def get_remove_sql_for_hashstore(db_id,table_name,request:Request):
+    return get_sql_for_hashstore(db_id,table_name,request,"sql/rm_key_tbl.txt")
+    
+async def get_left_tbl_full_hash_sql(comparemodel: Tcomparemodel, request, trans_seession,select_other_columns='no'):
+
+    columns_left = await get_column_list(
+            request, trans_seession, comparemodel.left_db, comparemodel.left_tbl
+        )
+    column_l_list = [
+            column
+            for column in columns_left
+            if column["column_name"] in comparemodel.common_columns
+            and column["column_name"] not in comparemodel.columns_to_exclude
+        ]
+    column_lu_list = [
+            column
+            for column in columns_left
+            if column["column_name"] in comparemodel.unique_columns
+        ]
+    pivot_dt_str = ""
+    if comparemodel.left_pivot_choice:
+        pivot_dt_str = ""
+        if comparemodel.left_pivot_choice == "Batch":
+            batch_dt = await read_batch_date_file()
+            pivot_dt_str = pendulum.parse(batch_dt, "YYYYMMDD").format(
+                    comparemodel.left_pivot_format
+                )
+        elif comparemodel.left_pivot_choice == "Current":
+            pivot_dt_str = pendulum.now("America/Toronto").format(
+                    comparemodel.left_pivot_format
+                )
+        elif comparemodel.left_pivot_choice == "Custom":
+            pivot_dt_str = pendulum.instance(
+                    comparemodel.left_custom_pivot_value
+                ).format(comparemodel.left_pivot_format)
+
+    hashcontext = {
+            "t_dialect": static.SConstants.db_dilects[comparemodel.left_db],
+            "db_name": static.SConstants.db_names[comparemodel.left_db],
+            "schema_name": static.SConstants.schema_names[comparemodel.left_db],
+            "table_name": await get_clean_table_name(comparemodel.left_tbl),
+            "column_list": column_l_list,
+            "uniq_column_list": column_lu_list,
+            "actul_where_cluase": comparemodel.left_where_clause,
+            "pivot_column": comparemodel.left_pivot_column,
+            "pivot_dt_str": pivot_dt_str,
+            "select_other_columns" : select_other_columns
+        }
+    sql_statement = (
+            Template(template_name="sql/get_table_hash.txt", context=hashcontext)
+            .to_asgi_response(request.app, request)
+            .body.decode("utf-8")
+        )
+    return sql_statement
+
+
+async def get_right_tbl_full_hash_sql(comparemodel: Tcomparemodel, request, trans_seession,select_other_columns='no'):
+
+    columns_right = await get_column_list(
+            request, trans_seession, comparemodel.right_db, comparemodel.right_tbl
+        )
+    column_l_list = [
+            column
+            for column in columns_right
+            if column["column_name"] in comparemodel.common_columns
+            and column["column_name"] not in comparemodel.columns_to_exclude
+        ]
+    column_lu_list = [
+            column
+            for column in columns_right
+            if column["column_name"] in comparemodel.unique_columns
+        ]
+    pivot_dt_str = ""
+    if comparemodel.right_pivot_choice:
+        pivot_dt_str = ""
+        if comparemodel.right_pivot_choice == "Batch":
+            batch_dt = await read_batch_date_file()
+            pivot_dt_str = pendulum.parse(batch_dt, "YYYYMMDD").format(
+                    comparemodel.right_pivot_format
+                )
+        elif comparemodel.right_pivot_choice == "Current":
+            pivot_dt_str = pendulum.now("America/Toronto").format(
+                    comparemodel.right_pivot_format
+                )
+        elif comparemodel.right_pivot_choice == "Custom":
+            pivot_dt_str = pendulum.instance(
+                    comparemodel.right_custom_pivot_value
+                ).format(comparemodel.right_pivot_format)
+
+    hashcontext = {
+            "t_dialect": static.SConstants.db_dilects[comparemodel.right_db],
+            "db_name": static.SConstants.db_names[comparemodel.right_db],
+            "schema_name": static.SConstants.schema_names[comparemodel.right_db],
+            "table_name": await get_clean_table_name(comparemodel.right_tbl),
+            "column_list": column_l_list,
+            "uniq_column_list": column_lu_list,
+            "actul_where_cluase": comparemodel.right_where_clause,
+            "pivot_column": comparemodel.right_pivot_column,
+            "pivot_dt_str": pivot_dt_str,
+            "select_other_columns" : select_other_columns
+        }
+    sql_statement = (
+            Template(template_name="sql/get_table_hash.txt", context=hashcontext)
+            .to_asgi_response(request.app, request)
+            .body.decode("utf-8")
+        )
+    return sql_statement

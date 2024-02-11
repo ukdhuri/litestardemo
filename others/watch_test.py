@@ -15,8 +15,8 @@ class FileEventHandler(FileSystemEventHandler):
                 time.sleep(5)  # Simulating the lock for 5 seconds
                 with open(event.src_path, 'r') as file:
                     content = file.read()
-                    ic("New file arrived:", event.src_path)
-                    ic("File content:", content)
+                    #ic("New file arrived:", event.src_path)
+                    #ic("File content:", content)
             finally:
                 self.lock.release()
 

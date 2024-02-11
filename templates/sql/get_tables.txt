@@ -5,6 +5,6 @@ WHERE table_schema NOT IN ('information_schema', 'mysql', 'performance_schema', 
 {% endif %}
 {% if t_dialect == 'TSQL' %}
 SELECT TABLE_NAME AS table_name
-FROM information_schema.tables
+FROM [{{ db_name }}].information_schema.tables
 WHERE TABLE_CATALOG = '{{ db_name }}' AND table_type = 'BASE TABLE' AND TABLE_SCHEMA = '{{ schema_name }}';
 {% endif %}

@@ -1,9 +1,9 @@
 {% set suffix = '_key_tmp' %}
 {% if t_dialect == 'TSQL' %}
 
-{% if select_other_columns == 'yes' %}
-    with all_col_result as (
-{% endif %}
+
+with all_col_result as (
+
 
 
 SELECT 
@@ -66,23 +66,20 @@ where 1=1
     {% endif %}
 {% endif %}
 
-{% if select_other_columns == 'yes' %}
+
 )
-select all_col_result.* from 
-{{ schema_name }}.{{ table_name + suffix }} ktm
-inner join all_col_result
-on ktm.ConcatenatedKeys = all_col_result.ConcatenatedKeys
+select top 10 all_col_result.* from 
+all_col_result
 order by all_col_result.ConcatenatedKeys asc
-{% endif %}
 
 
-{% endif %}
 
-{% if select_other_columns == 'yes' %}
-    with all_col_result as (
 {% endif %}
 
 {% if t_dialect == 'MYSQL' %}
+
+with all_col_result as (
+
 SELECT 
     CONCAT_WS('', 
         {% for column in uniq_column_list %}
@@ -126,6 +123,7 @@ SELECT
 
 FROM   {{ db_name }}.`{{ table_name }}`
 
+
 where 1=1
 
 
@@ -144,14 +142,11 @@ where 1=1
     {% endif %}
 {% endif %}
 
-{% if select_other_columns == 'yes' %}
+
 )
-select all_col_result.* from 
-{{ schema_name }}.{{ table_name + suffix }} ktm
-inner join all_col_result
-on ktm.ConcatenatedKeys = all_col_result.ConcatenatedKeys
+select top 10 all_col_result.* from 
+all_col_result
 order by all_col_result.ConcatenatedKeys asc
-{% endif %}
 
 
 {% endif %}

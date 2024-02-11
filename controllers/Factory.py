@@ -161,7 +161,7 @@ class FactoryController(Controller):
 
 
 
-        # result = await transaction_remote.execute(stmt)
+        # result = await transaction_remote.exe(stmt)
         # logger.info(result.all())
         
     
@@ -175,14 +175,14 @@ class FactoryController(Controller):
         """
 
 
-        result = await transaction_remote.execute(stmt)
+        result = await transaction_remote.exe(stmt)
         [print(rec.product_id,rec.category_id) for rec in result.all()]
 
    
-        await transaction_remote.execute(text(delete_stment))
+        await transaction_remote.exe(text(delete_stment))
         #transaction_remote.commit()
             
-        result = await transaction_remote.execute(stmt)
+        result = await transaction_remote.exe(stmt)
         [print(rec.product_id,rec.category_id) for rec in result.all()] 
 
         return "cleaned"  
@@ -256,7 +256,7 @@ class FactoryController(Controller):
     async def startbatch(self,request: Request,transaction_remote: AsyncSession,st: date) -> remote.Batch:
         query = select(remote.Batch).where(remote.Batch.batch_date == st)
         #query = select(remote.User)
-        result = await transaction_remote.execute(query)
+        result = await transaction_remote.exe(query)
         batch = result.scalars().first()
         print(st)
         print(batch)
@@ -322,7 +322,7 @@ class FactoryController(Controller):
     @get(["/close"], sync_to_thread=False) 
     async def liveb(self,request: Request,transaction_remote: AsyncSession,st: date) ->  str:
         query = select(remote.Batch).where(remote.Batch.batch_date == st)
-        result = await transaction_remote.execute(query)
+        result = await transaction_remote.exe(query)
         batch : remote.Batch = result.scalars().first()
         batch.status = "completed"
         transaction_remote.add(batch)
@@ -332,7 +332,7 @@ class FactoryController(Controller):
     async def liveb(self,request: Request,transaction_remote: AsyncSession) -> remote.Batch:
         query = select(remote.Batch).where(remote.Batch.status == 'inprogress')
         #query = select(remote.User)
-        result = await transaction_remote.execute(query)
+        result = await transaction_remote.exe(query)
         batch = result.scalars().first()
         print(batch)
         return batch

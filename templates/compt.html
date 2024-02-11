@@ -1,6 +1,9 @@
 {% extends 'base.html' %}
 {% block javascript %}
 <script type="text/javascript">
+    document.body.addEventListener("testLog", function (attr) {
+      //#console.log(attr.detail)
+  })
 
   document.body.addEventListener("forwardpage", function (attr) {
     var page_number_input = document.getElementById('page_number');

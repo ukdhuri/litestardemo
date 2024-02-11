@@ -35,7 +35,7 @@ async def create_csv_file2(filename, delimiter, num_records):
         "id", "name", "address", "phone_number", "email", "date_of_birth", "job", "company", "credit_card_number", "points",
     ]
     av = ",".join([f"{s}" for s in headers])
-    ic(av)
+    #ic(av)
 
     async with aiofiles.open(file_name, mode="w", newline="") as csv_file:
         writer = csv.writer(csv_file, quoting=csv.QUOTE_NONE)
@@ -270,11 +270,11 @@ def compare_mismatched_rows(
 
 async def main():
     # task1 = asyncio.create_task(create_csv_file2("test1", ",", 500))
-    # file_name = ic(await task1)
+    # file_name = #ic(await task1)
     # copyfile(file_name, "test2_20240115.csv")
 
-    df1 = pd.read_csv("test1_20240115.csv", delimiter=",", quotechar='"', skiprows=1)
-    df2 = pd.read_csv("test2_20240115.csv", delimiter=",", quotechar='"', skiprows=1)
+    df1 = pd.read_csv("/home/deck/devlopment/demo/others/test1_20240115.csv", delimiter=",", quotechar='"', skiprows=1)
+    df2 = pd.read_csv("/home/deck/devlopment/demo/others/test2_20240115.csv", delimiter=",", quotechar='"', skiprows=1)
 
     # Remove last row from df1
     df1 = df1.iloc[:-1]
@@ -292,40 +292,45 @@ async def main():
         df1.copy(), df2.copy(), ["id", "points"]
     )
     extra_df1, extra_df2 = get_extra_rows_using_hash(hash_df1, hash_df2)
+    ic(extra_df1[:10])
+    ic(extra_df2[:10])
     common_df = get_common_rows(hash_df1, hash_df2, ["ConcatenatedKeys"])
-
+    
     mismatched_df = find_mismatched_rows(
         hash_df1[["ConcatenatedKeys", "HashValue"]].copy(),
         hash_df2[["ConcatenatedKeys", "HashValue"]].copy(),
     )
+    ic(mismatched_df)
+
+    #To DO this needs to be fulldf: there needs to be a way for unselecting batch, only one key column not working
     mismatched_dict = compare_mismatched_rows(hash_df1, hash_df2, mismatched_df)
+    ic(mismatched_dict)
 
 
 
-
-    # ic(extra_df1)
-    # ic(extra_df2)
-    # ic(common_df.head(6))
-    # ic(mismatched_df)
-    # ic(mismatched_dict)
-    ic(len(common_df))
-    ic(len(df1))
-    ic(len(df1))
-    ic(len(mismatched_df))
+    # #ic(extra_df1)
+    # #ic(extra_df2)
+    # #ic(common_df.head(6))
+    # #ic(mismatched_df)
+    # #ic(mismatched_dict)
+    #ic(len(common_df))
+    #ic(len(df1))
+    #ic(len(df1))
+    #ic(len(mismatched_df))
     # for column_name, differ_items in mismatched_dict.items():
     #     for bdt in differ_items:
-    #         ic(bdt.ConcatenatedKeys, bdt.df1_value, bdt.df2_value)
+    #         #ic(bdt.ConcatenatedKeys, bdt.df1_value, bdt.df2_value)
 
     # Create a new Excel writer object
     common_df.set_index('ConcatenatedKeys', inplace=False)
     passed_col_df = pd.DataFrame(columns=['column_name', 'ConcatenatedKeys', 'value_df1', 'value_df2'])
-    ic(passed_col_df)
+    #ic(passed_col_df)
 
 
     passed_benedict_list : list[benedict] = []
 
     for column in df1.columns:
-        ic(column)
+        #ic(column)
         for index, common_row in common_df.head(10).iterrows():
                     # New row as a DataFrame
             item =  benedict()
@@ -395,6 +400,6 @@ if __name__ == "__main__":
     a = perf_counter()
     asyncio.run(main())
     b = perf_counter()
-    ic(b - a)
+    #ic(b - a)
 
 

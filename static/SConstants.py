@@ -45,7 +45,7 @@ db_dilects = benedict({
 
 db_names = benedict({
     'Remote' : 'HeavyDev',
-    'Remote1' :  'HeavyDev',
+    'Remote1' :  'WowDev',
     'Local' : 'HeavyDev',
 })
 

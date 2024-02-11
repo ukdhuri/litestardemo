@@ -5,9 +5,10 @@ from pathlib import Path
 
 memorystore = MemoryStore()
 root_store = RedisStore.with_client()
+tempdatard_store = root_store.with_namespace("tempdatard")
 cache_store = root_store.with_namespace("cache")
 session_store = root_store.with_namespace("sessions")
-tempdatard_store = root_store.with_namespace("tempdatard")
+#tempdatard_store = MemoryStore().get("tempdatard")
 sessions = root_store.with_namespace("sessions")
 tempdatafs_store  = MemoryStore()
 #tempdatafs_store=FileStore(Path("tempdatafs"))
@@ -20,7 +21,8 @@ response_cache_store = MemoryStore()
 
 
 async def before_shutdown() -> None:
-    await tempdatard_store.delete_all()
+    pass
+    #await tempdatard_store.delete_all()
 
 
 stores={"memory": memorystore,"root": root_store,"cache": cache_store,"sessions": session_store, "response_cache": response_cache_store,"tempdatard": tempdatard_store,"tempdatafs": tempdatafs_store}

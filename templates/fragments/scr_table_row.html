@@ -1,0 +1,11 @@
+<tbody  id="scr_tbody" hx-ext="multi-swap">
+    {% for config_run_row in config_run_id_tbl %}  
+      <tr id="scrid_{{ config_run_row.id}}"   hx-swap="multi:#scrid_{{ config_run_row.id }}">
+        <td>{{ config_run_row.id }}</td>
+        <td>{% if config_run_row.run_status=='running' %}<span class="loading loading-spinner loading-xs"></span>{% elif config_run_row.run_status=='error' %}❌Error❌{% else %}✅{% endif %}</td>
+        <td>{{ config_run_row.run_stat_time }}</td>
+        <td>{{ config_run_row.run_end_time }}</td>
+        <td>{% if config_run_row.run_status=='completed' %}<button class="btn btn-active btn-link" hx-get="/compt/csr_report_download?run_id={{ config_run_row.id}}">{{ config_run_row.run_report }}AAA</button>{% else %}{% endif %}</td>
+      </tr>
+    {% endfor %}
+</tbody>

@@ -2,7 +2,7 @@ from datetime import date, datetime
 from typing import Optional
 import pendulum
 from pydantic import BaseModel, computed_field, validator
-from sqlmodel import SQLModel, Field, select
+from sqlmodel import Relationship, SQLModel, Field, select
 from enum import Enum
 from lib.util import string_to_list, json_to_list
 from icecream import ic
@@ -22,16 +22,15 @@ class TComareTypes(Enum):
     CTE = "CTE"
 
 
-class TSchduledCompareRunModel(SQLModel, table=True):
-    id: Optional[int] = Field(default=None, primary_key=True)
-    config_id: int = Field(default=0, description="config id")
-    run_stat_date: Optional[datetime] = Field(default=None, description="Run Start Date")
-    run_end_date: Optional[datetime] = Field(default=None, description="Run End Date")
-    run_status: Optional[str] = Field(default=None, description="Run Status")
-    run_error: Optional[str] = Field(default=None, description="Run Error")
+class Keyhashtbl(SQLModel, table=True):
+    __tablename__ = ""
+    ConcatenatedKeys: str = Field(description="ConcatenatedKeys", primary_key=True)
+  
+
+
+#Tcomparemodel
     
-    
-class TCompareModel(SQLModel, table=True):
+class Tcomparemodel(SQLModel, table=True):
     id: Optional[int] = Field(default=None, primary_key=True)
     config_name: str = Field(default='', description="config name")
     left_obj_type: str = Field(default=TComareTypes.NOT_SELECTED.value, description="The leftype value")
@@ -50,11 +49,31 @@ class TCompareModel(SQLModel, table=True):
     right_where_clause: str = Field(default='', description="Right Where Clause")
     left_custom_pivot_value : Optional[date] = Field(default=None, description="Left Custom Pivot Value")
     right_custom_pivot_value: Optional[date] = Field(default=None, description="Right Custom Pivot Value")
-
-
+    tschduledcomparerunmodels: list["Tschduledcomparerunmodel"] = Relationship(back_populates="tcomparemodel")
+    left_cte: str = Field(default='', description="Left CTE")
+    right_cte: str = Field(default='', description="Right CTE")
+    left_filename: str = Field(default='', description="Left Filename")
+    right_filename: str = Field(default='', description="Right Filename")
+    left_fdt_placeholder: str = Field(default='', description="Left File Date Placeholder")
+    right_fdt_placeholder: str = Field(default='', description="Right File Date Placeholder")
+    left_fdt_format: str = Field(default='', description="Left File Date Format")
+    right_fdt_format: str = Field(default='', description="Right File Date Format")
+    left_file_delimiter: str = Field(default='', description="Left File Delimiter")
+    right_file_delimiter: str = Field(default='', description="Right File Delimiter")
+    left_file_header_delimiter: str = Field(default='', description="Left File Header Delimiter")
+    right_file_header_delimiter: str = Field(default='', description="Right File Header Delimiter")
+    left_header_lines: int = Field(default=0, description="Left Header Lines")
+    right_header_lines: int = Field(default=0, description="Right Header Lines")
+    left_footer_lines: int = Field(default=0, description="Left Footer Lines")
+    right_footer_lines: int = Field(default=0, description="Right Footer Lines")
+    left_trailer_string: str = Field(default='', description="Left Trailer String")
+    right_trailer_string: str = Field(default='', description="Right Trailer String")
+    left_fixed_width: str = Field(default='', description="Left Fixed Width")
+    right_fixed_width: str = Field(default='', description="Right Fixed Width")    
+    left_file_columns: str = Field(default='', description="Left File Columns")
+    right_file_columns: str = Field(default='', description="Right File Columns")
     common_columns_str : str = Field(default='', description="Common Columns")
     columns_to_exclude_str : str = Field(default='', description="Columns to Exclude")
-
     unique_columns_str : str = Field(default='', description="Unique Columns")
 
     @computed_field
@@ -107,7 +126,7 @@ class TCompareModel(SQLModel, table=True):
     def validate_right_db(cls, value):
         if value.lower().startswith('select') or value == '':
             raise ValueError("⚠️Right Database is not selected⚠️")
-        ic(value)
+        #ic(value)
         return value
     
     @validator('left_tbl')
@@ -122,14 +141,24 @@ class TCompareModel(SQLModel, table=True):
             raise ValueError("⚠️Right Table is not selected⚠️")
         return value
     
+#Tschduledcomparerunmodel
+class Tschduledcomparerunmodel(SQLModel, table=True):
+    id: Optional[int] = Field(default=None, primary_key=True)
+    run_stat_time: Optional[datetime] = Field(default=None, description="Run Start Date")
+    run_end_time: Optional[datetime] = Field(default=None, description="Run End Date")
+    run_status: Optional[str] = Field(default=None, description="Run Status")
+    run_error: Optional[str] = Field(default=None, description="Run Error")
+    run_report: Optional[str] = Field(default=None, description="Run Report")
+    tcomparemodel_id : int = Field(default=None, foreign_key="tcomparemodel.id")
+    tcomparemodel: Optional[Tcomparemodel] = Relationship(back_populates="tschduledcomparerunmodels")
 
 
 async def get_configs(transaction_local: AsyncSession):
-    result = await  transaction_local.exec(select(TCompareModel.config_name))
+    result = await  transaction_local.exec(select(Tcomparemodel.config_name))
     return result.all()
 
 async def get_configs_by_conifg_name(transaction_local: AsyncSession, config_name: str):
-    #result = await  transaction_local.execute(select(TCompareModel).where(TCompareModel.config_name == config_name))
-    x = await  transaction_local.execute(select(TCompareModel).where(TCompareModel.config_name == config_name))
-    return x.scalars().all()
+    #result = await  transaction_local.exec(select(Tcomparemodel).where(Tcomparemodel.config_name == config_name))
+    result = await  transaction_local.exec(select(Tcomparemodel).where(Tcomparemodel.config_name == config_name))
+    return result.all()
     #return result.fetchall()
