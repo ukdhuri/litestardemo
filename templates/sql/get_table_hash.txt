@@ -78,11 +78,14 @@ order by all_col_result.ConcatenatedKeys asc
 
 {% endif %}
 
+
+{% if t_dialect == 'MYSQL' %}
+
 {% if select_other_columns == 'yes' %}
     with all_col_result as (
 {% endif %}
 
-{% if t_dialect == 'MYSQL' %}
+
 SELECT 
     CONCAT_WS('', 
         {% for column in uniq_column_list %}
@@ -147,7 +150,7 @@ where 1=1
 {% if select_other_columns == 'yes' %}
 )
 select all_col_result.* from 
-{{ schema_name }}.{{ table_name + suffix }} ktm
+{{ table_name + suffix }} ktm
 inner join all_col_result
 on ktm.ConcatenatedKeys = all_col_result.ConcatenatedKeys
 order by all_col_result.ConcatenatedKeys asc

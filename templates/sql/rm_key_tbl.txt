@@ -3,13 +3,13 @@
 
 
 {% if t_dialect == 'TSQL' %}
-IF OBJECT_ID('{{ schema_name }}.{{ table_name + suffix }}') IS NOT NULL
-    DROP TABLE {{ schema_name }}.{{ table_name + suffix }};
+IF OBJECT_ID('{{ schema_name }}.{{ table_name + {side} + suffix }}') IS NOT NULL
+    DROP TABLE {{ schema_name }}.{{ table_name  + {side} + suffix }};
 {% endif %}
 
 
 {% if t_dialectc== 'MYSQL' %}
-DROP TABLE IF EXISTS {{ table_name + suffix }}
+DROP TABLE IF EXISTS {{ table_name  + {side} + suffix }}
 {% endif %}
  
 

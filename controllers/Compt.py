@@ -5,13 +5,14 @@ from typing import Optional
 from benedict import benedict
 from litestar import Controller, Request, Response, get, post
 from pydantic import ValidationError
+from sqlmodel import col, select
 #from sqlalchemy.ext.asyncio  import AsyncSession
 from sqlmodel.ext.asyncio.session import AsyncSession
 from litestar.response import Template
 from litestar.contrib.htmx.response import HTMXTemplate, HXLocation,TriggerEvent,ClientRedirect
 from lib.service import get_tables_list,get_column_list,process_compare_post, refresh_status_run_tbl, schedule_compare_run
 from icecream import ic
-from models.TCompare import TComareTypes, Tcomparemodel, get_configs, get_configs_by_conifg_name
+from models.TCompare import TComareTypes, Tcomparemodel, Tschduledcomparerunmodel, get_configs, get_configs_by_conifg_name
 from typing import Annotated
 from litestar.params import Parameter
 import uuid
@@ -172,8 +173,12 @@ class ComptController(Controller):
         transaction_local: AsyncSession ,
         run_id: Annotated[Optional[int], Parameter(query="run_id")],
     ) -> ClientRedirect:
-        file = f'output.xlsx'
-        filepath=Path(Path(__file__).resolve().parent.parent, "static", file)
+        statement = select(Tschduledcomparerunmodel).where(
+            col(Tschduledcomparerunmodel.id) == run_id,
+        )
+        run_record_cur = await transaction_local.exec(statement)
+        run_record = run_record_cur.one()
+        #transaction_local.get(Tcomparemodel.r)
         return ClientRedirect(
-            redirect_to=f"/reports/test.txt",           
+            redirect_to=f"/reports/{run_record.run_report}",           
         )

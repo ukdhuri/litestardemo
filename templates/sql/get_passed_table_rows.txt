@@ -69,7 +69,10 @@ where 1=1
 
 )
 select top 10 all_col_result.* from 
-all_col_result
+all_col_result 
+left join {{ schema_name }}.{{ table_name + suffix }} ktm
+on ktm.ConcatenatedKeys = all_col_result.ConcatenatedKeys
+where ktm.ConcatenatedKeys is null
 order by all_col_result.ConcatenatedKeys asc
 
 
@@ -144,10 +147,14 @@ where 1=1
 
 
 )
-select top 10 all_col_result.* from 
-all_col_result
-order by all_col_result.ConcatenatedKeys asc
 
+select all_col_result.* from 
+all_col_result 
+left join {{ schema_name }}.{{ table_name + suffix }} ktm
+on ktm.ConcatenatedKeys = all_col_result.ConcatenatedKeys
+where ktm.ConcatenatedKeys is null
+order by all_col_result.ConcatenatedKeys asc
+limit 10
 
 {% endif %}
 
