@@ -70,7 +70,7 @@ where 1=1
 )
 select top 10 all_col_result.* from 
 all_col_result 
-left join {{ schema_name }}.{{ table_name + suffix }} ktm
+left join {{ schema_name }}.{{ table_name + side + suffix }} ktm
 on ktm.ConcatenatedKeys = all_col_result.ConcatenatedKeys
 where ktm.ConcatenatedKeys is null
 order by all_col_result.ConcatenatedKeys asc
@@ -150,7 +150,7 @@ where 1=1
 
 select all_col_result.* from 
 all_col_result 
-left join {{ schema_name }}.{{ table_name + suffix }} ktm
+left join {{ schema_name }}.{{ table_name + side + suffix }} ktm
 on ktm.ConcatenatedKeys = all_col_result.ConcatenatedKeys
 where ktm.ConcatenatedKeys is null
 order by all_col_result.ConcatenatedKeys asc

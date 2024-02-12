@@ -1203,7 +1203,7 @@ async def compare_objects_main(
     transaction_local: AsyncSession,
     channels: ChannelsPlugin
 ) -> str:
-    filename = f"{comparemodel.id}_compare_{pendulum.now('America/Toronto').format('YYYYMMDDHHmmss')}"
+    filename = f"{comparemodel.config_name}_{comparemodel.id}_compare_{pendulum.now('America/Toronto').format('YYYYMMDDHHmmss')}"
     if comparemodel.left_obj_type == "Table":
         trans_seession_left = get_sesssion_for_transaction(
             comparemodel.left_db, transaction_remote, transaction_remote1
@@ -1244,7 +1244,10 @@ async def compare_objects_main(
     # mismatch_common = pd.DataFrame(columns=['clmid'])
     # extra_first = pd.DataFrame(columns=['clmid'])
     # extra_second = pd.DataFrame(columns=['clmid'])
-    
+    trd = request.app.stores.get("memory")
+    compare_limit = await trd.get(f"compare_limit")
+    if not compare_limit:
+        compare_limit = 1000
     
     if len(diff_df) > 0:
         key_tbl_pd1=hash_df_left[hash_df_left['ConcatenatedKeys'].isin(diff_df['ConcatenatedKeys'])]['ConcatenatedKeys']
@@ -1255,7 +1258,7 @@ async def compare_objects_main(
         await trans_seession_left.exec(text(left_sql_remove_table_for_hashstore))
         left_sql_create_table_for_hashstore = get_create_sql_for_hashstore(comparemodel.left_db,comparemodel.left_tbl,request,'_left')
         await trans_seession_left.exec(text(left_sql_create_table_for_hashstore))
-        key_tbl_pd1.to_sql(f'{comparemodel.left_tbl}_left_key_tmp',con=left_non_async_engine,if_exists='replace', index=False)
+        key_tbl_pd1[:compare_limit].to_sql(f'{comparemodel.left_tbl}_left_key_tmp',con=left_non_async_engine,if_exists='replace', index=False)
         sql_statement = await get_tbl_full_hash_sql(comparemodel, request, trans_seession_left,'left','yes')
         print(sql_statement)
         result = await trans_seession_left.exec(text(sql_statement)) 
@@ -1267,7 +1270,7 @@ async def compare_objects_main(
         await trans_seession_right.exec(text(right_sql_remove_table_for_hashstore))
         right_sql_create_table_for_hashstore = get_create_sql_for_hashstore(comparemodel.right_db,comparemodel.right_tbl,request,'_right')
         await trans_seession_right.exec(text(right_sql_create_table_for_hashstore))
-        key_tbl_pd2.to_sql(f'{comparemodel.right_tbl}_right_key_tmp',con=right_non_async_engine,if_exists='replace', index=False)
+        key_tbl_pd2[:compare_limit].to_sql(f'{comparemodel.right_tbl}_right_key_tmp',con=right_non_async_engine,if_exists='replace', index=False)
         sql_statement = await get_tbl_full_hash_sql(comparemodel, request, trans_seession_right,'right','yes')
         print(sql_statement)
         result = await trans_seession_right.exec(text(sql_statement)) 
@@ -1295,17 +1298,24 @@ async def compare_objects_main(
     passed_col_df = pd.DataFrame(columns=['column_name', 'ConcatenatedKeys', 'value_df_left', 'value_df_right'])
     ic(passed_col_df)
 
-    passed_sql_statement_left = await get_tbl_full_hash_sql(comparemodel, request, trans_seession_left,'left','yes',"sql/get_passed_table_rows.txt")
+    if len(diff_df) > 0:
+        passed_table_sql_template = "sql/get_passed_table_rows.txt"
+    else:
+        passed_table_sql_template = "sql/get_passed_table_rows_success.txt"
+
+    passed_sql_statement_left = await get_tbl_full_hash_sql(comparemodel, request, trans_seession_left,'left','yes',passed_table_sql_template)
     result = await trans_seession_left.exec(text(passed_sql_statement_left)) 
     hash_passed_df_left = pd.DataFrame(result.fetchall())
     ic(hash_passed_df_left)
-    await trans_seession_left.exec(text(left_sql_remove_table_for_hashstore))
+    if len(diff_df) > 0:
+        await trans_seession_left.exec(text(left_sql_remove_table_for_hashstore))
 
-    passed_sql_statement_right = await get_tbl_full_hash_sql(comparemodel, request, trans_seession_right,'right','yes',"sql/get_passed_table_rows.txt")
+    passed_sql_statement_right = await get_tbl_full_hash_sql(comparemodel, request, trans_seession_right,'right','yes',passed_table_sql_template)
     result = await trans_seession_right.exec(text(passed_sql_statement_right)) 
     hash_passed_df_right = pd.DataFrame(result.fetchall())
     ic(hash_passed_df_right)
-    await trans_seession_right.exec(text(right_sql_remove_table_for_hashstore))
+    if len(diff_df) > 0:
+        await trans_seession_right.exec(text(right_sql_remove_table_for_hashstore))
     
     common_df = get_common_rows(hash_passed_df_left, hash_passed_df_right, ["ConcatenatedKeys"])
     common_df.set_index('ConcatenatedKeys', inplace=False)
@@ -1362,10 +1372,22 @@ async def compare_objects_main(
 
         
         summary_df = summary_df.drop([0, 1])
+        meta_df = pd.DataFrame(columns=['ConfigName', 'ConfigValue'])
+        meta_df.loc[0] = ['LeftDatabaseName', static.SConstants.db_names[comparemodel.left_db]]
+        meta_df.loc[1] = ['LeftTableName', comparemodel.left_tbl]
+        meta_df.loc[2] = ['RightDatabaseName', static.SConstants.db_names[comparemodel.right_db]]
+        meta_df.loc[3] = ['RightTableName', comparemodel.right_tbl]
+        meta_df.loc[4] = ['UniqueColumns', comparemodel.unique_columns]
+        meta_df.loc[5] = ['ExcludedColumns', comparemodel.columns_to_exclude]
+
+
+        meta_df.to_excel(writer, sheet_name="MetaInfo", index=False)
+
         summary_df.to_excel(writer, sheet_name="Summary", index=False)
         passed_col_df.to_excel(writer, sheet_name="PassRecordSummary", index=False)
 
-
+        
+        
         for column_name, differ_items in mismatched_dict.items():
             mismatched_df = pd.DataFrame(columns=['ConcatenatedKeys', 'value_df_left', 'value_df_right'])
             mismatched_bendict_list : list[benedict] = []
@@ -1520,7 +1542,7 @@ async def get_tbl_full_hash_sql(
     trans_seession,
     compare_side: str,
     select_other_columns='no',
-    template_name="sql/get_table_hash.txt"
+    template_name="sql/get_table_hash.txt",
 ):
     if compare_side == "left":
         columns = await get_column_list(
@@ -1579,7 +1601,8 @@ async def get_tbl_full_hash_sql(
         "actul_where_cluase": where_clause,
         "pivot_column": pivot_column,
         "pivot_dt_str": pivot_dt_str,
-        "select_other_columns": select_other_columns
+        "select_other_columns": select_other_columns,
+        "side": f"_{compare_side}",
     }
     sql_statement = (
         Template(template_name=template_name, context=hashcontext)

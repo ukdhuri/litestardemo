@@ -3,14 +3,14 @@
 
 
 {% if t_dialect == 'TSQL' %}
-CREATE TABLE {{ schema_name }}.{{ table_name + {side} + suffix }} (
+CREATE TABLE {{ schema_name }}.{{ table_name + side + suffix }} (
     ConcatenatedKeys VARCHAR(330)
 );
 {% endif %}
 
 
 {% if t_dialect == 'MYSQL' %}
-CREATE TABLE {{ table_name + {side} + suffix }} (
+CREATE TABLE {{ table_name + side + suffix }} (
     ConcatenatedKeys VARCHAR(330)
 );
 {% endif %}
