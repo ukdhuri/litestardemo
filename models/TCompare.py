@@ -22,9 +22,15 @@ class TComareTypes(Enum):
     CTE = "CTE"
 
 
-class Keyhashtbl(SQLModel, table=True):
-    __tablename__ = ""
-    ConcatenatedKeys: str = Field(description="ConcatenatedKeys", primary_key=True)
+
+def CreateKeyTable(tablename) -> SQLModel:
+    class KeyTable(SQLModel, table=True,extend_existing=True):
+        __tablename__ = tablename
+        __table_args__ = {'extend_existing': True}
+        ConcatenatedKeys: str = Field(description="ConcatenatedKeys", primary_key=True)
+    return KeyTable
+
+
   
 
 
@@ -75,6 +81,10 @@ class Tcomparemodel(SQLModel, table=True):
     common_columns_str : str = Field(default='', description="Common Columns")
     columns_to_exclude_str : str = Field(default='', description="Columns to Exclude")
     unique_columns_str : str = Field(default='', description="Unique Columns")
+    created_by: str = Field(default='Litestar', description="Created By")
+    created_on: datetime = Field(default=pendulum.now("America/Toronto"), description="Created On")
+    updated_by: str = Field(default='Litestar', description="Updated By")
+    updated_on: datetime = Field(default=pendulum.now("America/Toronto"), description="Updated On")
 
     @computed_field
     @property
@@ -151,6 +161,8 @@ class Tschduledcomparerunmodel(SQLModel, table=True):
     run_report: Optional[str] = Field(default=None, description="Run Report")
     tcomparemodel_id : int = Field(default=None, foreign_key="tcomparemodel.id")
     tcomparemodel: Optional[Tcomparemodel] = Relationship(back_populates="tschduledcomparerunmodels")
+    created_by: str = Field(default='Litestar', description="Created By")
+    created_on: datetime = Field(default=pendulum.now("America/Toronto"), description="Created On")
 
 
 async def get_configs(transaction_local: AsyncSession):

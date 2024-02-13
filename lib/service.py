@@ -17,7 +17,7 @@ from datetime import date
 import copy
 from typing import TypeVar
 from models.History import BaseHistory, SearchAndOrder, StatuSHistory
-from models.TCompare import Keyhashtbl, TComareTypes, Tcomparemodel, Tschduledcomparerunmodel
+from models.TCompare import  TComareTypes, Tcomparemodel, Tschduledcomparerunmodel, CreateKeyTable
 import static.SConstants
 from litestar.response import Template
 import static.SConstants
@@ -1138,7 +1138,7 @@ async def schedule_compare_run(
         l_tschduledcomparerunmodel = Tschduledcomparerunmodel(
             tcomparemodel=l_tcomparemodel,
             run_status="running",
-            run_stat_time=pendulum.now(),
+            run_stat_time=pendulum.now("America/Toronto"),
         )
         transaction_local.add(l_tschduledcomparerunmodel)
         await transaction_local.commit()
@@ -1163,7 +1163,7 @@ async def schedule_compare_run(
         )
         transaction_local.__init__(bind=transaction_local.bind)
         l_tschduledcomparerunmodel.run_status = "completed"
-        l_tschduledcomparerunmodel.run_end_time = pendulum.now()
+        l_tschduledcomparerunmodel.run_end_time = pendulum.now("America/Toronto")
         l_tschduledcomparerunmodel.run_report = outputfilename
         transaction_local.add(l_tschduledcomparerunmodel)
         await transaction_local.commit()
@@ -1253,24 +1253,44 @@ async def compare_objects_main(
         key_tbl_pd1=hash_df_left[hash_df_left['ConcatenatedKeys'].isin(diff_df['ConcatenatedKeys'])]['ConcatenatedKeys']
         key_tbl_pd2=hash_df_right[hash_df_right['ConcatenatedKeys'].isin(diff_df['ConcatenatedKeys'])]['ConcatenatedKeys']
 
-        left_non_async_engine = get_non_async_sesssion_for_transaction(comparemodel.left_db,request)
+        #left_non_async_engine = get_non_async_sesssion_for_transaction(comparemodel.left_db,request)
         left_sql_remove_table_for_hashstore = get_remove_sql_for_hashstore(comparemodel.left_db,comparemodel.left_tbl,request,'_left')
         await trans_seession_left.exec(text(left_sql_remove_table_for_hashstore))
         left_sql_create_table_for_hashstore = get_create_sql_for_hashstore(comparemodel.left_db,comparemodel.left_tbl,request,'_left')
         await trans_seession_left.exec(text(left_sql_create_table_for_hashstore))
-        key_tbl_pd1[:compare_limit].to_sql(f'{comparemodel.left_tbl}_left_key_tmp',con=left_non_async_engine,if_exists='replace', index=False)
+        #key_tbl_pd1[:compare_limit].to_sql(f'{comparemodel.left_tbl}_left_key_tmp',con=left_non_async_engine,if_exists='replace', index=False)
+        key_tbl_model_left = CreateKeyTable(f'{comparemodel.left_tbl}_left_key_tmp')
+        key_obj_list_left : list[SQLModel] = []
+        for row in key_tbl_pd1[:compare_limit]:
+            key_tbl_model_left_obj =  key_tbl_model_left(ConcatenatedKeys=row)
+            key_obj_list_left.append(key_tbl_model_left_obj)
+        trans_seession_left.add_all(key_obj_list_left)
+        await trans_seession_left.commit()
+        trans_seession_left.__init__(bind=trans_seession_left.bind)
+
+
         sql_statement = await get_tbl_full_hash_sql(comparemodel, request, trans_seession_left,'left','yes')
         print(sql_statement)
         result = await trans_seession_left.exec(text(sql_statement)) 
         hash_mismatch_all_cols_df_left = pd.DataFrame(result.fetchall())
         
 
-        right_non_async_engine = get_non_async_sesssion_for_transaction(comparemodel.right_db,request)
+        #right_non_async_engine = get_non_async_sesssion_for_transaction(comparemodel.right_db,request)
         right_sql_remove_table_for_hashstore = get_remove_sql_for_hashstore(comparemodel.right_db,comparemodel.right_tbl,request,'_right')
         await trans_seession_right.exec(text(right_sql_remove_table_for_hashstore))
         right_sql_create_table_for_hashstore = get_create_sql_for_hashstore(comparemodel.right_db,comparemodel.right_tbl,request,'_right')
         await trans_seession_right.exec(text(right_sql_create_table_for_hashstore))
-        key_tbl_pd2[:compare_limit].to_sql(f'{comparemodel.right_tbl}_right_key_tmp',con=right_non_async_engine,if_exists='replace', index=False)
+        #key_tbl_pd2[:compare_limit].to_sql(f'{comparemodel.right_tbl}_right_key_tmp',con=right_non_async_engine,if_exists='replace', index=False)
+        key_tbl_model_right = CreateKeyTable(f'{comparemodel.right_tbl}_right_key_tmp')
+        key_obj_list_right : list[SQLModel] = []
+        for row in key_tbl_pd2[:compare_limit]:
+            key_tbl_model_right_obj =  key_tbl_model_right(ConcatenatedKeys=row)
+            key_obj_list_right.append(key_tbl_model_right_obj)
+        trans_seession_right.add_all(key_obj_list_right)
+        await trans_seession_right.commit()
+        trans_seession_right.__init__(bind=trans_seession_left.bind)
+
+
         sql_statement = await get_tbl_full_hash_sql(comparemodel, request, trans_seession_right,'right','yes')
         print(sql_statement)
         result = await trans_seession_right.exec(text(sql_statement)) 
