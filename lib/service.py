@@ -997,7 +997,7 @@ async def process_db_tbl_columns(
     else:
         benecontext["common.right.tables"] = []
 
-    if data_compare.left_tbl != "Select Table" and data_compare.left_tbl != "":
+    if data_compare.left_tbl != "Select Table" and data_compare.left_tbl != "" and data_compare.left_db != "Select Database":
         trans_seession = get_sesssion_for_transaction(
             data_compare.left_db, transaction_remote, transaction_remote1
         )
@@ -1008,7 +1008,7 @@ async def process_db_tbl_columns(
             request, trans_seession, data_compare.left_db, data_compare.left_tbl
         )
 
-    if data_compare.right_tbl != "Select Table" and data_compare.right_tbl != "":
+    if data_compare.right_tbl != "Select Table" and data_compare.right_tbl != "" and data_compare.right_db != "Select Database":
         trans_seession = get_sesssion_for_transaction(
             data_compare.right_db, transaction_remote, transaction_remote1
         )
@@ -1273,7 +1273,8 @@ async def compare_objects_main(
         print(sql_statement)
         result = await trans_seession_left.exec(text(sql_statement)) 
         hash_mismatch_all_cols_df_left = pd.DataFrame(result.fetchall())
-        
+        await publish_log(request=request,channels=channels,log_str="Hash mismatch all columns for left table calculated.",config_id=comparemodel.id,logtype="info")
+
 
         #right_non_async_engine = get_non_async_sesssion_for_transaction(comparemodel.right_db,request)
         right_sql_remove_table_for_hashstore = get_remove_sql_for_hashstore(comparemodel.right_db,comparemodel.right_tbl,request,'_right')
@@ -1295,6 +1296,7 @@ async def compare_objects_main(
         print(sql_statement)
         result = await trans_seession_right.exec(text(sql_statement)) 
         hash_mismatch_all_cols_df_right = pd.DataFrame(result.fetchall())
+        await publish_log(request=request,channels=channels,log_str="Hash mismatch all columns for right table calculated.",config_id=comparemodel.id,logtype="info")
         
     
 
@@ -1313,6 +1315,7 @@ async def compare_objects_main(
     ic(hash_mismatch_all_cols_df_left)
     mismatched_dict = compare_mismatched_rows(hash_mismatch_all_cols_df_left, hash_mismatch_all_cols_df_right, mismatched_df,df_left_extra,df_right_extra)
     ic(mismatched_dict)
+    await publish_log(request=request,channels=channels,log_str="Mismatched rows calculated.",config_id=comparemodel.id,logtype="info")
 
 
     passed_col_df = pd.DataFrame(columns=['column_name', 'ConcatenatedKeys', 'value_df_left', 'value_df_right'])
@@ -1340,6 +1343,7 @@ async def compare_objects_main(
     common_df = get_common_rows(hash_passed_df_left, hash_passed_df_right, ["ConcatenatedKeys"])
     common_df.set_index('ConcatenatedKeys', inplace=False)
     ic(common_df)
+    await publish_log(request=request,channels=channels,log_str="Common rows calculated.",config_id=comparemodel.id,logtype="info")
 
     passed_benedict_list : list[benedict] = []
 
@@ -1426,6 +1430,7 @@ async def compare_objects_main(
     await highlight_positive_cells(file,'Summary','ExtraInRight')
     await highlight_cells_with_value(file,'Does_Not_Exists')
     await make_header_background_grey(file)
+    await publish_log(request=request,channels=channels,log_str="Excel file created.",config_id=comparemodel.id,logtype="info")
     return f"{filename}.xlsx"
 
 def get_sql_for_hashstore(db_id,table_name,request:Request,template_name,side):
@@ -1473,7 +1478,7 @@ async def get_left_tbl_full_hash_sql(comparemodel: Tcomparemodel, request, trans
         pivot_dt_str = ""
         if comparemodel.left_pivot_choice == "Batch":
             batch_dt = await read_batch_date_file()
-            pivot_dt_str = pendulum.parse(batch_dt, "YYYYMMDD").format(
+            pivot_dt_str = pendulum.instance(batch_dt).format(
                     comparemodel.left_pivot_format
                 )
         elif comparemodel.left_pivot_choice == "Current":
@@ -1525,7 +1530,7 @@ async def get_right_tbl_full_hash_sql(comparemodel: Tcomparemodel, request, tran
         pivot_dt_str = ""
         if comparemodel.right_pivot_choice == "Batch":
             batch_dt = await read_batch_date_file()
-            pivot_dt_str = pendulum.parse(batch_dt, "YYYYMMDD").format(
+            pivot_dt_str = pendulum.instance(batch_dt).format(
                     comparemodel.right_pivot_format
                 )
         elif comparemodel.right_pivot_choice == "Current":
@@ -1605,7 +1610,7 @@ async def get_tbl_full_hash_sql(
         pivot_dt_str = ""
         if pivot_choice == "Batch":
             batch_dt = await read_batch_date_file()
-            pivot_dt_str = pendulum.parse(batch_dt, "YYYYMMDD").format(pivot_format)
+            pivot_dt_str = pendulum.instance(batch_dt).format(pivot_format)
         elif pivot_choice == "Current":
             pivot_dt_str = pendulum.now("America/Toronto").format(pivot_format)
         elif pivot_choice == "Custom":

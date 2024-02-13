@@ -17,7 +17,7 @@
       <div class="flex flex-row mr-2">
         <div class="flex-auto lg:tooltip  mr-3"
           data-tip="Select Config from list of configs or Type a new name to save configuration with that Name">
-          <input type="text" placeholder="Select Existing Config or Create New One" class="input input-bordered"
+          <input type="search"  placeholder="Select Existing Config or Create New One" class="input input-bordered"
             name="config_name" id="config_name" value="{{ config_name }}" hx-trigger="input changed delay:500ms"
             hx-post="/compt/load_config" hx-ext='json-enc' list="config_list" />
           <input type="hidden" name="id" id="config_id" value="{{ id }}" hx-ext='json-enc' class="hidden">
@@ -31,7 +31,7 @@
         </div>
         <button class="btn btn-active btn-primary mr-3" hx-post="/compt/saveconfig" hx-ext='json-enc'>Save
           configuration</button>
-        <button class="btn btn-active btn-primary mr-3" hx-post="/compt/schedule_compare_run" hx-ext='json-enc'
+        <button class="btn btn-active btn-primary mr-3" hx-post="/compt/schedule_compare_run" hx-ext='json-enc' {% if not id %}disabled{% endif %}
           hx-target="#fakediv">Schedule Run</button>
       </div>
     </div>
@@ -64,9 +64,8 @@
           <p>Non matching column names are excluded from the comparison by default in Table to Table Comparison, if you
             are want to use match different column names please use cte option and then write select statement to match
             the column names using alias. </p>
-          <p>Current Run Progress
+          <p>Current Run Stauts for {{ config_name }}
           </p>
-          <p><progress class="progress progress-secondary w-56" value="0" max="30"></progress>
           </p>
         </div>
         <div class="flex-1 w-64 flex flex-row">
@@ -151,19 +150,19 @@
 
         {% if id %}
         <h2 class="mt-3">Compare Run Status</h2>
-        <div class="flex-1 w-64 flex flex-col md:flex-row mt-6">
+        <div class="flex-1 flex flex-col md:flex-row mt-6 max-w-full">
           <!-- <div id="terminal" class="mockup-code  mr-3">
           <pre  data-prefix="1"><code>npm i daisyui</code></pre> 
           <pre data-prefix="2"><code>installing...</code></pre> 
           <pre data-prefix="3" class="bg-warning text-warning-content"><code>Error!</code></pre>
           <pre id = 'terminallastrow'><code>npm run dev</code></pre>
         </div> -->
-          <div id="terminal_wrapper flex-auto" hx-ext="ws" ws-connect="/ws_chnl_compare_log_{{ id }}" hx-preserve>
-            <div id="terminal" class="mockup-code mr-3">
+          <div id="terminal_wrapper grow flex-auto w-full" hx-ext="ws" ws-connect="/ws_chnl_compare_log_{{ id }}" hx-preserve>
+            <div id="terminal" class="mockup-code mr-3  w-full min-">
               <pre data-prefix="$" id='terminallastrow'><code>...</code></pre>
             </div>
           </div>
-          <table class="table flex-auto" hx-ext="ws" ws-connect="/ws_chnl_compare_runs_{{ id }}" hx-preserve>
+          <table class="table grow flex-auto" hx-ext="ws" ws-connect="/ws_chnl_compare_runs_{{ id }}" hx-preserve>
             <!-- head -->
             <thead>
               <tr>
