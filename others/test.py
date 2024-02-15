@@ -13,6 +13,7 @@ import csv
 import datetime
 from faker import Faker
 import os
+import openpyxl
 import pandas as pd
 import polars as pl
 import pandas as pd
@@ -21,6 +22,7 @@ import hashlib
 from benedict import benedict
 import pandas as pd
 import pandas as pd
+from openpyxl.styles import PatternFill
 
 
 async def create_csv_file2(filename, delimiter, num_records):
@@ -229,7 +231,7 @@ def get_mismatched_fields(df1, df2, mismatched_df):
     return mismatched_fields
 
 
-def compare_mismatched_rows(
+def compare_mismatched_rows_old(
     df1: pd.DataFrame, df2: pd.DataFrame, mismatched_df: pd.DataFrame
 ) -> benedict[str, benedict]:
     """
@@ -266,6 +268,207 @@ def compare_mismatched_rows(
                 )
 
     return result_dict
+
+
+
+def compare_mismatched_rows(
+    df_left: pd.DataFrame, df_right: pd.DataFrame, mismatched_df: pd.DataFrame, df_left_extra : pd.DataFrame,df_right_extra : pd.DataFrame
+) -> benedict[str, benedict]:
+    """
+    Compare mismatched rows in two dataframes and return a dictionary with differing columns.
+
+    Parameters:
+    df_left (pandas.DataFrame): First dataframe.
+    df_right (pandas.DataFrame): Second dataframe.
+    mismatched_df (pandas.DataFrame): Dataframe with mismatched rows.
+
+    Returns:
+    benedict: A dictionary with column names as keys and dataframes as values.
+    """
+    result_dict = benedict()
+
+    for index, row in mismatched_df.iterrows():
+        keys = row["ConcatenatedKeys"]
+        df_left_row = df_left[df_left["ConcatenatedKeys"] == keys]
+        df_right_row = df_right[df_right["ConcatenatedKeys"] == keys]
+
+        for column in df_left.columns:
+            if (
+                column not in ["ConcatenatedKeys", "HashValue"]
+                and df_left_row[column].values[0] != df_right_row[column].values[0]
+            ):
+                if column not in result_dict:
+                    result_dict[column] = []
+                result_dict[column].append(
+                    {
+                        "df_left_value": df_left_row[column].values[0],
+                        "df_right_value": df_right_row[column].values[0],
+                        "ConcatenatedKeys": keys,
+                    }
+                )
+    for index, row in df_left_extra.iterrows():
+        keys = row["ConcatenatedKeys"]
+        df_left_row = df_left[df_left["ConcatenatedKeys"] == keys]
+        for column in df_left.columns:
+            if (
+                column not in ["ConcatenatedKeys", "HashValue"]
+            ):
+                if column not in result_dict:
+                    result_dict[column] = []
+                result_dict[column].append(
+                    {
+                        "df_left_value": df_left_row[column].values[0],
+                        "df_right_value": "Does_Not_Exists",
+                        "ConcatenatedKeys": keys,
+                    }
+                )
+    for index, row in df_right_extra.iterrows():
+        keys = row["ConcatenatedKeys"]
+        df_right_row = df_right[df_right["ConcatenatedKeys"] == keys]
+        for column in df_right.columns:
+            if (
+                column not in ["ConcatenatedKeys", "HashValue"]
+            ):
+                if column not in result_dict:
+                    result_dict[column] = []
+                result_dict[column].append(
+                    {
+                        "df_left_value": "Does_Not_Exists",
+                        "df_right_value": df_right_row[column].values[0],
+                        "ConcatenatedKeys": keys,
+                    }
+                )
+
+    return result_dict
+
+def find_mismatched_rows(df_left, df_right):
+    """
+    Compare two dataframes based on the 'ConcatenatedKeys' column and return rows where 'HashValue' is not matching.
+
+    Parameters:
+    df_left (pandas.DataFrame): First dataframe.
+    df_right (pandas.DataFrame): Second dataframe.
+
+    Returns:
+    pandas.DataFrame: A dataframe containing the rows where 'HashValue' is not matching based on the 'ConcatenatedKeys' column.
+    """
+    merged_df = pd.merge(df_left, df_right, on="ConcatenatedKeys", suffixes=("_df_left", "_df_right"))
+    ic(merged_df)
+    mismatched_df = merged_df[merged_df["HashValue_df_left"] != merged_df["HashValue_df_right"]]
+    ic(mismatched_df)
+    return mismatched_df
+
+async def highlight_positive_cells(excel_filename, worksheet_name, column_name):
+    """
+    Highlights cells with positive values in the specified column of an Excel worksheet.
+
+    Args:
+        excel_filename (str): Path to the Excel file.
+        worksheet_name (str): Name of the worksheet.
+        column_name (str): Name of the column to check for positive values.
+
+    Returns:
+        None
+    """
+    try:
+        # Read the Excel file
+        df = pd.read_excel(excel_filename, sheet_name=worksheet_name)
+
+        # Get the column index based on the column name
+        column_index = df.columns.get_loc(column_name)
+
+        # Create a workbook object
+        wb = openpyxl.load_workbook(excel_filename)
+
+        # Select the specified worksheet
+        ws = wb[worksheet_name]
+
+        # Define the red fill style
+        red_fill = PatternFill(start_color='FF0000', end_color='FF0000', fill_type='solid')
+
+        # Iterate through rows and highlight positive cells
+        for row in ws.iter_rows(min_row=2, max_row=ws.max_row, min_col=column_index + 1, max_col=column_index + 1):
+            cell_value = row[0].value
+            if cell_value is not None and cell_value > 0:
+                row[0].fill = red_fill
+
+        # Save the modified workbook
+        wb.save(excel_filename)
+        print(f"Positive values in column '{column_name}' highlighted in red.")
+
+    except Exception as e:
+        print(f"Error: {str(e)}")
+
+
+async def highlight_cells_with_value(excel_filename, target_value):
+    """
+    Highlights cells in an Excel file that match the specified value.
+
+    Args:
+        excel_filename (str): Path to the Excel file.
+        target_value (str): The value to search for in the cells.
+
+    Returns:
+        None
+    """
+    try:
+        # Create a workbook object
+        wb = openpyxl.load_workbook(excel_filename)
+
+        # Iterate through all sheets in the workbook
+        for sheet_name in wb.sheetnames:
+            ws = wb[sheet_name]
+
+            # Define the red fill style
+            red_fill = PatternFill(start_color='FF0000', end_color='FF0000', fill_type='solid')
+
+            # Iterate through all cells in the sheet
+            for row in ws.iter_rows():
+                for cell in row:
+                    if cell.value == target_value:
+                        cell.fill = red_fill
+
+        # Save the modified workbook
+        wb.save(excel_filename)
+        print(f"Cells with value '{target_value}' highlighted in red.")
+
+    except Exception as e:
+        print(f"Error: {str(e)}")
+
+
+async def make_header_background_grey(excel_filename):
+    """
+    Modifies the background color of the header row in an Excel file to grey (if header cell has text).
+
+    Args:
+        excel_filename (str): Path to the Excel file.
+
+    Returns:
+        None
+    """
+    try:
+        # Create a workbook object
+        wb = openpyxl.load_workbook(excel_filename)
+
+        # Iterate through all sheets in the workbook
+        for sheet_name in wb.sheetnames:
+            ws = wb[sheet_name]
+
+            # Define the grey fill style
+            grey_fill = PatternFill(start_color='D3D3D3', end_color='D3D3D3', fill_type='solid')
+
+            # Iterate through header cells (first row)
+            for cell in ws[1]:
+                if cell.value:
+                    cell.fill = grey_fill
+
+        # Save the modified workbook
+        wb.save(excel_filename)
+        print("Header background color set to grey for cells with text.")
+
+    except Exception as e:
+        print(f"Error: {str(e)}")
+
 
 
 async def main():
