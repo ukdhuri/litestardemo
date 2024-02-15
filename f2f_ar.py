@@ -758,7 +758,7 @@ def main():
 
     ic(passed_benedict_list)
 
-
+    passed_col_df = pd.DataFrame(passed_benedict_list)
     path = f'/home/deck/Downloads/'
     report_path = Path(path,f'{get_filename_without_extension(config_path)}_report_{datetime.now().strftime("%Y%m%d%H%M%S")}.xlsx')
     with pd.ExcelWriter(report_path, engine="xlsxwriter") as writer:
