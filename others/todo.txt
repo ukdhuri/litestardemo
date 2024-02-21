@@ -1,1 +1,43 @@
 change report filename
+
+
+select * from '/home/deck/Documents/inbound/pqr.txt.right_6_hash.parquet'
+df = duckdb.sql("SELECT ConcatenatedKeys FROM '/home/deck/Documents/inbound/abc.txt.left_6_hash.parquet' EXCEPT SELECT ConcatenatedKeys FROM '/home/deck/Documents/inbound/pqr.txt.right_6_hash.parquet'").to_df()
+
+query = """
+SELECT *
+FROM (
+SELECT ConcatenatedKeys FROM '/home/deck/Documents/inbound/abc.txt.left_6_hash.parquet'
+EXCEPT
+SELECT ConcatenatedKeys FROM '/home/deck/Documents/inbound/pqr.txt.right_6_hash.parquet'
+) AS extra_rows_in_a;
+"""
+
+query = """
+    SELECT * FROM '/home/deck/Documents/inbound/pqr.txt.right_6_hash.parquet';
+"""
+
+
+"SELECT * (SELECT concat_ws('▼',main.col1,main.col2,main.col3,main.col4) as ConcatenatedKeys from '/home/deck/Documents/inbound/abc.txt.left_6.parquet' as main) AS concat_man JOIN '/home/deck/Documents/inbound/abc.txt.left_6_extra.parquet' extra_l on concat_man.ConcatenatedKeys = extra_l.ConcatenatedKeys"
+
+
+query="SELECT concat_main.* from (SELECT concat_ws('▼',col1,col2,col3,col4) as ConcatenatedKeys,* from '/home/deck/Documents/inbound/abc.txt.left_6.parquet') as concat_main JOIN '/home/deck/Documents/inbound/abc.txt.left_6_extra.parquet' extra_l on concat_main.ConcatenatedKeys = extra_l.ConcatenatedKeys"
+query="SELECT concat_main.* from (SELECT concat_ws('▼',col1,col2,col3,col4) as ConcatenatedKeys,* from '/home/deck/Documents/inbound/abc.txt.left_6.parquet') AS concat_main JOIN '/home/deck/Documents/inbound/abc.txt.left_6_extra.parquet' extra_l on concat_main.ConcatenatedKeys = extra_l.ConcatenatedKeys limit 1
+JOIN '/home/deck/Documents/inbound/abc.txt.left_6_extra.parquet' extra_l on concat_man.ConcatenatedKeys = extra_l.ConcatenatedKeys
+
+query="SELECT left_concat_main.*, from (SELECT concat_ws('▼',col1,col2,col3,col4) as ConcatenatedKeys,* from '/home/deck/Documents/inbound/abc.txt.left_6.parquet') AS left_concat_main JOIN '/home/deck/Documents/inbound/6_common.parquet' common_file on left_concat_main.ConcatenatedKeys = common_file.ConcatenatedKeys JOIN (SELECT concat_ws('▼',col1,col2,col3,col4) as ConcatenatedKeys,* from '/home/deck/Documents/inbound/pqr.txt.right_6.parquet') AS right_concat_main on left_concat_main.ConcatenatedKeys = common_file.ConcatenatedKeys limit 500"
+query="SELECT left_concat_main.*, from (SELECT concat_ws('▼',col1,col2,col3,col4) as ConcatenatedKeys,* from '/home/deck/Documents/inbound/abc.txt.left_6.parquet') AS left_concat_main , '/home/deck/Documents/inbound/6_common.parquet' common_file where left_concat_main.ConcatenatedKeys = common_file.ConcatenatedKeys"
+
+query="SELECT left_concat_main.*, from (SELECT concat_ws('▼',col1,col2,col3,col4) as ConcatenatedKeys,* from '/home/deck/Documents/inbound/abc.txt.left_6.parquet') AS left_concat_main JOIN '/home/deck/Documents/inbound/6_common.parquet' common_file on left_concat_main.ConcatenatedKeys = common_file.ConcatenatedKeys limit 10000"
+
+query="SELECT left_concat_main.*,right_concat_main.*, from (SELECT concat_ws('▼',col1,col2,col3,col4) as ConcatenatedKeys,* from '/home/deck/Documents/inbound/abc.txt.left_6.parquet') AS left_concat_main , (SELECT concat_ws('▼',col1,col2,col3,col4) as ConcatenatedKeys,* from '/home/deck/Documents/inbound/pqr.txt.right_6.parquet') AS right_concat_main , '/home/deck/Documents/inbound/6_common.parquet' common_file where left_concat_main.ConcatenatedKeys = common_file.ConcatenatedKeys and left_concat_main.ConcatenatedKeys = right_concat_main.ConcatenatedKeys"
+
+duckdb.sql(query).to_df()
+len(duckdb.sql(query).to_df())
+
+
+
+
+
+SELECT ConcatenatedKeys FROM '/home/deck/Documents/inbound/abc.txt.left_6_hash.parquet' EXCEPT SELECT ConcatenatedKeys FROM '/home/deck/Documents/inbound/pqr.txt.right_6_hash.parquet'
+

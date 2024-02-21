@@ -1,6 +1,7 @@
 import random
 import shutil
 from typing import List
+import uuid
 import pandas as pd
 from icecream import ic
 from faker import Faker
@@ -18,7 +19,9 @@ from benedict import benedict
 import openpyxl
 from openpyxl.styles import PatternFill
 import hashlib
-
+import duckdb
+import duckdb
+import pyarrow.parquet as pq
 
 def read_config(file_path,filename1,filename2):
     # Read the Excel file
@@ -98,18 +101,48 @@ def create_hash_dataframe(df, keys):
     columnlist = df.columns.tolist()
 
     # Concatenate key columns
-    df["ConcatenatedKeys"] = df[keys].astype(str).agg("▼".join, axis=1)
+    #df["ConcatenatedKeys"] = df[keys].astype(str).agg("▼".join, axis=1)
+
+    df = duckdb.query(f"SELECT md5(concat_ws('',{','.join(str(item) for item in df.columns)})) as HashValue, * FROM df").to_df()
+    print(df)
+    df = duckdb.query(f"SELECT concat_ws('▼',{','.join(str(item) for item in keys)}) as ConcatenatedKeys, * FROM df").to_df()
+    print(df)
+
 
     # Calculate hash values
-    df["HashValue"] = df.apply(
-        lambda row: hashlib.sha256(row.to_string().encode()).hexdigest(), axis=1
-    )
+    # df["HashValue"] = df.apply(
+    #     lambda row: hashlib.sha256(row.to_string().encode()).hexdigest(), axis=1
+    # )
     # df['HashValue'] = df.apply(lambda row: hashlib.sha256(row.tostring().encode()).hexdigest(), axis=1, raw=True, result_type='reduce')
 
     # Create the separate dataframe
     hash_df = df[["ConcatenatedKeys", "HashValue", *columnlist]]
 
     return hash_df
+
+def create_hash_dataframe_duckdb(file_name, keys, columnlist, outputfile_name):
+    """
+    Create a separate dataframe with concatenated key columns and hash values of the complete record.
+
+    Parameters:
+    df (pandas.DataFrame): Input dataframe.
+    keys (list): List of column names to use as keys for concatenation.
+
+    Returns:
+    pandas.DataFrame: A dataframe with two columns. The first column contains the concatenated key columns,
+        and the second column contains the hash values of the complete record.
+    """ 
+
+
+    # Concatenate key columns
+    #df["ConcatenatedKeys"] = df[keys].astype(str).agg("▼".join, axis=1)
+    #query = "SELECT concat_ws('▼',{','.join(str(item) for item in keys)}) as ConcatenatedKeys, md5(concat_ws('',{','.join(str(item) for item in columnlist)})) as HashValue, * FROM '{file_name}' as spf"
+    #query = 'SELECT 42'
+    #df = duckdb.query(f"SELECT concat_ws('▼',{','.join(str(item) for item in keys)}) as ConcatenatedKeys, md5(concat_ws('',{','.join(str(item) for item in columnlist)})) as HashValue, * FROM '{file_name}' as spf").to_df()
+    duckdb.query(f"SELECT concat_ws('▼',{','.join(str(item) for item in keys)}) as ConcatenatedKeys, md5(concat_ws('',{','.join(str(item) for item in columnlist)})) as HashValue FROM '{file_name}' as spf").to_parquet(file_name=outputfile_name,compression='gzip')
+    #duckdb.sql(f"COPY ({query}) TO '/home/deck/Documents/inbound/sscc.parquet'")      # Copy to a Parquet file
+
+
 
 
 def add_concatenated_keys(df, keys):
@@ -173,6 +206,62 @@ def get_extra_rows_using_keys(df1, df2, keys):
 
     return extra_df1, extra_df2
 
+def get_extra_rows_using_keys_duckdb(filename_l, filename_r, outputfile_l, outputfile_r, datafile_l, datafile_r, keys, compare_row_limit=5000):
+    query = f"""
+    SELECT *
+    FROM (
+    SELECT ConcatenatedKeys FROM '{filename_l}'
+    EXCEPT
+    SELECT ConcatenatedKeys FROM '{filename_r}'
+    ) AS extra_rows_in_a;
+    """
+    duckdb.sql(query).to_parquet(outputfile_l,compression='gzip')
+    query = f"""
+    SELECT *
+    FROM (
+    SELECT ConcatenatedKeys FROM '{filename_r}'
+    EXCEPT
+    SELECT ConcatenatedKeys FROM '{filename_l}'
+    ) AS extra_rows_in_a;
+    """
+    duckdb.sql(query).to_parquet(outputfile_r,compression='gzip')
+    extra_df_l_sql = f"""
+    SELECT concat_main.* from (SELECT concat_ws('▼',{','.join(str(item) for item in keys)}) as ConcatenatedKeys,* from '{datafile_l}') AS concat_main JOIN '{outputfile_l}' extra_l on concat_main.ConcatenatedKeys = extra_l.ConcatenatedKeys limit {compare_row_limit}
+    """
+    extra_df_l = duckdb.sql(extra_df_l_sql).to_df()
+    extra_df_r_sql = f"""
+    SELECT concat_main.* from (SELECT concat_ws('▼',{','.join(str(item) for item in keys)}) as ConcatenatedKeys,* from '{datafile_r}') AS concat_main JOIN '{outputfile_r}' extra_r on concat_main.ConcatenatedKeys = extra_r.ConcatenatedKeys limit {compare_row_limit}
+    """
+    extra_df_r = duckdb.sql(extra_df_r_sql).to_df()
+    return extra_df_l, extra_df_r
+  
+    
+def get_common_rows_using_keys_duckdb(filename_l, filename_r, common_file_name, datafile_l, datafile_r, keys, common_col_keys):
+    common_file_name=str(common_file_name)
+    query = f"""
+    SELECT count(1)
+    FROM (
+    SELECT ConcatenatedKeys,HashValue FROM '{filename_l}'
+    INTERSECT
+    SELECT ConcatenatedKeys,HashValue FROM '{filename_r}'
+    ) AS common_tbl;
+    """
+    count = duckdb.sql(query).to_df().values[0][0]
+    ic(count)
+    query = f"""
+    SELECT *
+    FROM (
+    SELECT ConcatenatedKeys,HashValue FROM '{filename_l}'
+    INTERSECT
+    SELECT ConcatenatedKeys,HashValue FROM '{filename_r}'
+    ) AS common_tbl limit 10;
+    """
+    duckdb.sql(query).to_parquet(common_file_name,compression='gzip')
+    common_rows_sql = f"""
+    SELECT left_concat_main.*, right_concat_main.* from (SELECT concat_ws('▼',{','.join(str(item) for item in keys)}) as ConcatenatedKeys,* from '{datafile_l}') AS left_concat_main, (SELECT concat_ws('▼',{','.join(str(item) for item in keys)}) as ConcatenatedKeys,* from '{datafile_r}') AS right_concat_main , '{common_file_name}' AS common_file where left_concat_main.ConcatenatedKeys = common_file.ConcatenatedKeys and left_concat_main.ConcatenatedKeys = right_concat_main.ConcatenatedKeys limit 10
+    """
+    common_rows = duckdb.sql(common_rows_sql).to_df()
+    return count, common_rows
 
 
 def get_common_rows(df_left, df_right, keys):
@@ -340,6 +429,26 @@ def find_mismatched_rows(df_left, df_right):
     ic(merged_df)
     mismatched_df = merged_df[merged_df["HashValue_df_left"] != merged_df["HashValue_df_right"]]
     ic(mismatched_df)
+    
+    # Convert pandas dataframes to DuckDB tables
+    con = duckdb.connect()
+    con.register("df_left", df_left)
+    con.register("df_right", df_right)
+
+    # Perform the merge using DuckDB
+    merged_df = con.execute("""
+        SELECT *
+        FROM df_left
+        JOIN df_right ON df_left.ConcatenatedKeys = df_right.ConcatenatedKeys
+    """).fetchdf()
+
+    # Filter the mismatched rows using DuckDB
+    mismatched_df = con.execute("""
+        SELECT *
+        FROM merged_df
+        WHERE merged_df.HashValue_df_left != merged_df.HashValue_df_right
+    """).fetchdf()
+
     return mismatched_df
 
 def highlight_positive_cells(excel_filename, worksheet_name, column_name):
@@ -572,6 +681,28 @@ def create_large_df(num_rows, columns=['A', 'B'], column_types=['int', 'int'],co
     return df
 
 
+def delete_file_if_exists(file_path):
+    """
+    Delete the file if it exists.
+
+    Parameters:
+    file_path (str): Path to the file.
+
+    Returns:
+    None
+    """
+    if os.path.exists(file_path):
+        os.remove(file_path)
+        print(f"File '{file_path}' deleted.")
+    else:
+        print(f"File '{file_path}' does not exist.")
+
+
+def get_paraquete_rowcount(file_path):
+    duckdb.query(f"SELECT count(1) as cnt FROM '{file_path}'").to_df().values[0][0]
+
+
+
 def main():
     config_path = '/home/deck/Documents/mappings/test1_F2F.xlsx'
     colmapping, meta_l, meta_r, filename_l, filename_r = read_config(config_path,'abc.txt','pqr.txt')
@@ -579,6 +710,9 @@ def main():
     uniq_col_list = string_to_list(colmapping['uniq_key'][0])
     ic(uniq_col_list)
     lenghtlist = list(colmapping['length'])
+
+    run_id = uuid.UUID(int=uuid.getnode()).hex[-12:]
+    run_id = 6 
 
 
     ic(list_of_columns)
@@ -694,7 +828,8 @@ def main():
     except:
         last_line_i_l = 0
 
-
+    delete_file_if_exists(f'{filename_l}_{run_id}.parquet')
+    df_l.to_parquet(f'{filename_l}_{run_id}.parquet', engine='pyarrow', compression='gzip')
 
     script_path = '/home/deck/devlopment/demo/cleanheadandtail.sh'
     param1 = f'{filename_r}'
@@ -712,22 +847,32 @@ def main():
     except:
         last_line_i_r = 0
 
+    delete_file_if_exists(f'{filename_r}_{run_id}.parquet')
+    df_r.to_parquet(f'{filename_r}_{run_id}.parquet', engine='pyarrow', compression='gzip')
+
+    
+
     ic(last_line_i_l)
     ic(last_line_i_r)
-    print(df_l)
-    print(df_r)
 
-    hash_df_l = create_hash_dataframe(df_l.copy(), uniq_col_list)
-    hash_df_r = create_hash_dataframe(df_r.copy(), uniq_col_list)
-
-    extra_df_l, extra_df_r = get_extra_rows_using_keys(
-        df_l.copy(), df_r.copy(),uniq_col_list
-    )
-    extra_df_l, extra_df_r = get_extra_rows_using_hash(hash_df_l, hash_df_r)
-    ic(extra_df_l[:10])
-    ic(extra_df_r[:10])
-    common_df = get_common_rows(hash_df_l, hash_df_r, ["ConcatenatedKeys", "HashValue"])
-    print(common_df)
+    #hash_df_l = create_hash_dataframe(df_l.copy(), uniq_col_list)
+    #hash_df_r = create_hash_dataframe(df_r.copy(), uniq_col_list)
+    
+    delete_file_if_exists(f'{filename_l}_{run_id}_hash.parquet')
+    create_hash_dataframe_duckdb(f'{filename_l}_{run_id}.parquet',uniq_col_list,list_of_columns,f'{filename_l}_{run_id}_hash.parquet')
+    delete_file_if_exists(f'{filename_r}_{run_id}_hash.parquet')
+    create_hash_dataframe_duckdb(f'{filename_r}_{run_id}.parquet',uniq_col_list,list_of_columns,f'{filename_r}_{run_id}_hash.parquet')
+    get_extra_rows_using_keys_duckdb(f'{filename_l}_{run_id}_hash.parquet',f'{filename_r}_{run_id}_hash.parquet',f'{filename_l}_{run_id}_extra.parquet',f'{filename_r}_{run_id}_extra.parquet',f'{filename_l}_{run_id}.parquet',f'{filename_r}_{run_id}.parquet',uniq_col_list)
+    common_count,common_rows = get_common_rows_using_keys_duckdb(f'{filename_l}_{run_id}_hash.parquet',f'{filename_r}_{run_id}_hash.parquet',str(Path(Path(f'{filename_l}_{run_id}_hash.parquet').parent,f'{run_id}_common.parquet')), f'{filename_l}_{run_id}.parquet',f'{filename_r}_{run_id}.parquet',uniq_col_list,list_of_columns)
+    # extra_df_l, extra_df_r = get_extra_rows_using_keys(
+    #     df_l.copy(), df_r.copy(),uniq_col_list
+    # )
+    # extra_df_l, extra_df_r = get_extra_rows_using_hash(hash_df_l, hash_df_r)
+    
+    # ic(extra_df_l[:10])
+    # ic(extra_df_r[:10])
+    # common_df = get_common_rows(hash_df_l, hash_df_r, ["ConcatenatedKeys", "HashValue"])
+    # print(common_df)
     
     mismatched_df = find_mismatched_rows(
         hash_df_l[["ConcatenatedKeys", "HashValue"]].copy(),
