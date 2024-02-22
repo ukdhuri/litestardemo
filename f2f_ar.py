@@ -80,9 +80,7 @@ def find_mismatched_rows(df_left, df_right):
     pandas.DataFrame: A dataframe containing the rows where 'HashValue' is not matching based on the 'ConcatenatedKeys' column.
     """
     merged_df = pd.merge(df_left, df_right, on="ConcatenatedKeys", suffixes=("_df_left", "_df_right"))
-    ic(merged_df)
-    mismatched_df = merged_df[merged_df["HashValue_df_left"] != merged_df["HashValue_df_right"]]
-    ic(mismatched_df)
+    mismatched_df = merged_df[merged_df["Hashleft_side_value"] != merged_df["Hashright_side_value"]]
     return mismatched_df
 
 def create_hash_dataframe(df, keys):
@@ -234,7 +232,50 @@ def get_extra_rows_using_keys_duckdb(filename_l, filename_r, outputfile_l, outpu
     """
     extra_df_r = duckdb.sql(extra_df_r_sql).to_df()
     return extra_df_l, extra_df_r
-  
+
+
+def create_diff_benedict(extra_df_l, extra_df_r, diff_df, common_keys):
+    diff_dict = benedict()
+    for column_nm in extra_df_l.columns:
+        if column_nm in ['ConcatenatedKeys', 'HashValue']:
+            continue
+        if column_nm not in diff_dict:
+            diff_dict[column_nm] = []
+        ic(column_nm)
+        if len(extra_df_l) > 0:
+            for index, row in extra_df_l.iterrows():
+                binding_key = row["ConcatenatedKeys"]
+                diff_dict[column_nm].append(
+                    {
+                        "df_left_value": row[column_nm], #extra_df_l.loc[index, column_nm],
+                        "df_right_value": "Does_Not_Exists",
+                        "ConcatenatedKeys": binding_key,
+                    }
+                )
+
+        if len(extra_df_l) > 0:
+            for index, row in extra_df_r.iterrows():
+                binding_key = row["ConcatenatedKeys"]
+                diff_dict[column_nm].append(
+                    {
+                        "df_left_value": "Does_Not_Exists",
+                        "df_right_value": row[column_nm], #extra_df_l.loc[index, column_nm],
+                        "ConcatenatedKeys": binding_key,
+                    }
+                )
+
+        if len(diff_df) > 0:
+            for index, row in diff_df.iterrows():
+                if row[column_nm+'_x'] != row[column_nm+'_y']:
+                    binding_key = row["ConcatenatedKeys"]
+                    diff_dict[column_nm].append(
+                        {
+                            "df_left_value": row[column_nm+'_x'],
+                            "df_right_value": row[column_nm+'_y'], #extra_df_l.loc[index, column_nm],
+                            "ConcatenatedKeys": binding_key,
+                        }
+                    )
+    return diff_dict
     
 def get_common_rows_using_keys_duckdb(filename_l, filename_r, common_file_name, datafile_l, datafile_r, keys, common_col_keys):
     common_file_name=str(common_file_name)
@@ -261,7 +302,6 @@ def get_common_rows_using_keys_duckdb(filename_l, filename_r, common_file_name, 
     SELECT left_concat_main.*, right_concat_main.* from (SELECT concat_ws('▼',{','.join(str(item) for item in keys)}) as ConcatenatedKeys_x, {','.join(str(item)+ ' AS '+str(item)+'_x' for item in common_col_keys)} from '{datafile_l}') AS left_concat_main, (SELECT concat_ws('▼',{','.join(str(item) for item in keys)}) as ConcatenatedKeys_y, {','.join(str(item)+ ' AS '+str(item)+'_y' for item in common_col_keys)} from '{datafile_r}') AS right_concat_main , '{common_file_name}' AS common_file where left_concat_main.ConcatenatedKeys_x = common_file.ConcatenatedKeys and left_concat_main.ConcatenatedKeys_x = right_concat_main.ConcatenatedKeys_y limit 10
     """
     common_rows = duckdb.sql(common_rows_sql).to_df()
-    ic(common_rows)
     return count, common_rows
 
 
@@ -427,9 +467,7 @@ def find_mismatched_rows(df_left, df_right):
     pandas.DataFrame: A dataframe containing the rows where 'HashValue' is not matching based on the 'ConcatenatedKeys' column.
     """
     merged_df = pd.merge(df_left, df_right, on="ConcatenatedKeys", suffixes=("_df_left", "_df_right"))
-    ic(merged_df)
-    mismatched_df = merged_df[merged_df["HashValue_df_left"] != merged_df["HashValue_df_right"]]
-    ic(mismatched_df)
+    mismatched_df = merged_df[merged_df["Hashleft_side_value"] != merged_df["Hashright_side_value"]]
     
     # Convert pandas dataframes to DuckDB tables
     con = duckdb.connect()
@@ -447,90 +485,48 @@ def find_mismatched_rows(df_left, df_right):
     mismatched_df = con.execute("""
         SELECT *
         FROM merged_df
-        WHERE merged_df.HashValue_df_left != merged_df.HashValue_df_right
+        WHERE merged_df.Hashleft_side_value != merged_df.Hashright_side_value
     """).fetchdf()
 
     return mismatched_df
 
 
-def find_mismatched_rows_duckdb(filename_l, filename_r, diff_file_name, datafile_l, datafile_r, keys, common_col_keys):
+def find_mismatched_rows_duckdb(filename_l, filename_r, diff_file_name, datafile_l, datafile_r, keys, common_col_keys, max_compare_rows=5000):
     diff_file_name=str(diff_file_name)
     query = f"""
     SELECT count(1)
     FROM (
-    SELECT a.ConcatenatedKeys,a.HashValue as 'HashValue_df_left',b.HashValue as 'HashValue_df_right'
+    SELECT a.ConcatenatedKeys,a.HashValue as 'Hashleft_side_value',b.HashValue as 'Hashright_side_value'
     FROM '{filename_l}' as a JOIN '{filename_r}' as b ON a.ConcatenatedKeys = b.ConcatenatedKeys
     WHERE
     a.HashValue != b.HashValue
     ) AS common_tbl;
     """
-    count = duckdb.sql(query).to_df().values[0][0]
-    ic(count)
+    mismtach_count = duckdb.sql(query).to_df().values[0][0]
+    ic(mismtach_count)
+    if mismtach_count == 0:
+        return mismtach_count, pd.DataFrame()
     query = f"""
     SELECT *
     FROM (
-    SELECT a.ConcatenatedKeys,a.HashValue as 'HashValue_df_left',b.HashValue as 'HashValue_df_right'
+    SELECT a.ConcatenatedKeys,a.HashValue as 'Hashleft_side_value',b.HashValue as 'Hashright_side_value'
     FROM '{filename_l}' as a JOIN '{filename_r}' as b ON a.ConcatenatedKeys = b.ConcatenatedKeys
     WHERE
     a.HashValue != b.HashValue
-    ) AS DiffTbl limit 10;
+    ) AS DiffTbl limit {max_compare_rows};
     """
     duckdb.sql(query).to_parquet(diff_file_name,compression='gzip')
     diff_rows_sql = f"""
-    SELECT left_concat_main.*, right_concat_main.* 
+    SELECT diff_file.ConcatenatedKeys, left_concat_main.*, right_concat_main.* 
     from 
     (SELECT concat_ws('▼',{','.join(str(item) for item in keys)}) as ConcatenatedKeys_x, {','.join(str(item)+ ' AS '+str(item)+'_x' for item in common_col_keys)} from '{datafile_l}') AS left_concat_main, 
     (SELECT concat_ws('▼',{','.join(str(item) for item in keys)}) as ConcatenatedKeys_y, {','.join(str(item)+ ' AS '+str(item)+'_y' for item in common_col_keys)} from '{datafile_r}') AS right_concat_main, 
     '{diff_file_name}' AS diff_file
-    where left_concat_main.ConcatenatedKeys_x = diff_file.ConcatenatedKeys and left_concat_main.ConcatenatedKeys_x = right_concat_main.ConcatenatedKeys_y limit 10
+    where left_concat_main.ConcatenatedKeys_x = diff_file.ConcatenatedKeys and left_concat_main.ConcatenatedKeys_x = right_concat_main.ConcatenatedKeys_y limit {max_compare_rows}
     """
-    common_rows = duckdb.sql(diff_rows_sql).to_df()
-    ic(common_rows)
-    return count, common_rows
+    mismatched_rows = duckdb.sql(diff_rows_sql).to_df()
+    return mismtach_count, mismatched_rows
 
-
-    # Perform the merge using DuckDB
-    merged_df = duckdb.sql("""
-        SELECT *
-        FROM df_left
-        JOIN df_right ON df_left.ConcatenatedKeys = df_right.ConcatenatedKeys
-    """).to_df()
-
-    # Filter the mismatched rows using DuckDB
-    mismatched_df = duckdb.sql("""
-        SELECT *
-        FROM merged_df
-        WHERE merged_df.HashValue_df_left != merged_df.HashValue_df_right
-    """).fetchdf()
-
-
-
-    diff_file_name=str(diff_file_name)
-    query = f"""
-    SELECT count(1)
-    FROM (
-    SELECT ConcatenatedKeys,HashValue FROM '{filename_l}'
-    INTERSECT
-    SELECT ConcatenatedKeys,HashValue FROM '{filename_r}'
-    ) AS common_tbl;
-    """
-    count = duckdb.sql(query).to_df().values[0][0]
-    ic(count)
-    query = f"""
-    SELECT *
-    FROM (
-    SELECT ConcatenatedKeys,HashValue FROM '{filename_l}'
-    INTERSECT
-    SELECT ConcatenatedKeys,HashValue FROM '{filename_r}'
-    ) AS common_tbl limit 10;
-    """
-    duckdb.sql(query).to_parquet(diff_file_name,compression='gzip')
-    diff_rows_sql = f"""
-    SELECT left_concat_main.*, right_concat_main.* from (SELECT concat_ws('▼',{','.join(str(item) for item in keys)}) as ConcatenatedKeys_x, {','.join(str(item)+ ' AS '+str(item)+'_x' for item in keys)} from '{datafile_l}') AS left_concat_main, (SELECT concat_ws('▼',{','.join(str(item) for item in keys)}) as ConcatenatedKeys_y, {','.join(str(item)+ ' AS '+str(item)+'_y' for item in keys)} from '{datafile_r}') AS right_concat_main , '{diff_file_name}' AS common_file where left_concat_main.ConcatenatedKeys_x = common_file.ConcatenatedKeys and left_concat_main.ConcatenatedKeys_x = right_concat_main.ConcatenatedKeys_y limit 10
-    """
-    common_rows = duckdb.sql(diff_rows_sql).to_df()
-    ic(common_rows)
-    return count, common_rows
 
 def highlight_positive_cells(excel_filename, worksheet_name, column_name):
     """
@@ -658,7 +654,12 @@ def get_last_line(file_path):
     last_line = result.stdout.strip()
     return last_line
 
-
+def get_wc_l(file_path):
+    awkcommand="awk '{print $1}'"
+    tail_command = f"wc -l {file_path} | {awkcommand}"
+    result = subprocess.run(tail_command, shell=True, capture_output=True, text=True)
+    last_line = result.stdout.strip()
+    return last_line 
 
 def string_to_list(string: str) -> list[str]:
     if not string or len(string) == 0:
@@ -666,10 +667,6 @@ def string_to_list(string: str) -> list[str]:
     if ',' not in string:
         return [string]
     return string.split(',')
-
-
-
-
 
 
 def get_filename_without_extension(fullpath):
@@ -686,8 +683,6 @@ def get_filename_without_extension(fullpath):
     filename_without_extension = os.path.splitext(filename)[0]
     return filename_without_extension
 
-
-
 def create_csv_file(colmapping, filename1,sep):
     df = create_large_df(50, list(colmapping['filecolname']), list(colmapping['type']), list(colmapping['length']))
     header1 = 'filename\n'
@@ -697,7 +692,6 @@ def create_csv_file(colmapping, filename1,sep):
         os.remove(filename1)
         
     start_time = tx.perf_counter()
-    ic(sep)
 
     df.to_csv(filename1, index=False, sep=sep, header=list(df.columns), quotechar='"', quoting=1, escapechar='\\')
 
@@ -733,8 +727,6 @@ def create_csv_file(colmapping, filename1,sep):
     if os.path.exists(temp_filename):
         os.remove(temp_filename)
 
-
-
 def create_large_df(num_rows, columns=['A', 'B'], column_types=['int', 'int'],column_lengnths=[10, 10]):
     fake = Faker()
     # Create a dataframe with random values
@@ -761,7 +753,6 @@ def create_large_df(num_rows, columns=['A', 'B'], column_types=['int', 'int'],co
         i += 1
     return df
 
-
 def delete_file_if_exists(file_path):
     """
     Delete the file if it exists.
@@ -778,9 +769,11 @@ def delete_file_if_exists(file_path):
     else:
         print(f"File '{file_path}' does not exist.")
 
-
 def get_paraquete_rowcount(file_path):
-    duckdb.query(f"SELECT count(1) as cnt FROM '{file_path}'").to_df().values[0][0]
+    return duckdb.query(f"SELECT count(1) as cnt FROM '{file_path}'").to_df().values[0][0]
+
+
+
 
 
 
@@ -794,7 +787,7 @@ def main():
 
     run_id = uuid.UUID(int=uuid.getnode()).hex[-12:]
     run_id = 6 
-
+    compare_row_limit = 3
 
     ic(list_of_columns)
 
@@ -891,6 +884,15 @@ def main():
     except:
         trailercntstr_r = ''
 
+    delete_file_if_exists(f'{filename_l}_{run_id}.parquet')
+    delete_file_if_exists(f'{filename_r}_{run_id}.parquet')
+    delete_file_if_exists(f'{filename_l}_{run_id}_hash.parquet')
+    delete_file_if_exists(f'{filename_r}_{run_id}_hash.parquet')
+    delete_file_if_exists(f'{filename_l}_{run_id}_extra.parquet')
+    delete_file_if_exists(f'{filename_r}_{run_id}_extra.parquet')
+    delete_file_if_exists(str(Path(Path(f'{filename_l}_{run_id}_hash.parquet').parent,f'{run_id}_common.parquet')))
+    delete_file_if_exists(str(Path(Path(f'{filename_l}_{run_id}_hash.parquet').parent,f'{run_id}_diff.parquet')))
+
 
 
     script_path = '/home/deck/devlopment/demo/cleanheadandtail.sh'
@@ -899,18 +901,25 @@ def main():
     param3 = str(tailrows_l)
     subprocess.run([script_path, param1, param2, param3])
     if fixed_l == 'N':
-        df_l = pd.read_csv(f'{filename_l}.gz',engine='pyarrow', dtype_backend='pyarrow', delimiter=delmt_l, names=list_of_columns, skiprows=0, header=None, encoding='utf-8' ,escapechar=escape_char_l, compression='gzip')
+        #df_l = 
+        pd.read_csv(f'{filename_l}.gz',engine='pyarrow', dtype_backend='pyarrow', delimiter=delmt_l, names=list_of_columns, skiprows=0, header=None, encoding='utf-8' ,escapechar=escape_char_l, compression='gzip').to_parquet(f'{filename_l}_{run_id}.parquet', engine='pyarrow', compression='gzip')
     else:
-        df_l = pd.read_fwf(f'{filename_l}.gz', widths=lenghtlist, names=list_of_columns,engine='pyarrow', dtype_backend='pyarrow', compression='gzip')
+        #df_l = 
+        pd.read_fwf(f'{filename_l}.gz', widths=lenghtlist, names=list_of_columns,engine='pyarrow', dtype_backend='pyarrow', compression='gzip').to_parquet(f'{filename_l}_{run_id}.parquet', engine='pyarrow', compression='gzip')
     try:
         last_line_l=get_last_line(filename_l.replace('.left',''))
+        wc_l=get_wc_l(filename_l.replace('.left',''))
         last_line_l=last_line_l.replace(trailercntstr_l,'').strip().replace('=','')
         last_line_i_l = int(last_line_l)
+        trailer_matching_l="N"
+        if last_line_i_l == int(wc_l)-(tailrows_l+headrows_l):
+            trailer_matching_l="Y"
     except:
         last_line_i_l = 0
+        trailer_matching_l="" 
 
-    delete_file_if_exists(f'{filename_l}_{run_id}.parquet')
-    df_l.to_parquet(f'{filename_l}_{run_id}.parquet', engine='pyarrow', compression='gzip')
+
+    #df_l.to_parquet(f'{filename_l}_{run_id}.parquet', engine='pyarrow', compression='gzip')
 
     script_path = '/home/deck/devlopment/demo/cleanheadandtail.sh'
     param1 = f'{filename_r}'
@@ -918,59 +927,38 @@ def main():
     param3 = str(tailrows_r)
     subprocess.run([script_path, param1, param2, param3])
     if fixed_r == 'N':
-        df_r = pd.read_csv(f'{filename_r}.gz',engine='pyarrow', dtype_backend='pyarrow', delimiter=delmt_r, names=list_of_columns, skiprows=0, header=None, encoding='utf-8' ,escapechar=escape_char_r, compression='gzip')
+        #df_r = 
+        pd.read_csv(f'{filename_r}.gz',engine='pyarrow', dtype_backend='pyarrow', delimiter=delmt_r, names=list_of_columns, skiprows=0, header=None, encoding='utf-8' ,escapechar=escape_char_r, compression='gzip').to_parquet(f'{filename_r}_{run_id}.parquet', engine='pyarrow', compression='gzip')
     else:
-        df_r = pd.read_fwf(f'{filename_r}.gz', widths=lenghtlist, names=list_of_columns,engine='pyarrow', dtype_backend='pyarrow', compression='gzip')
+        #df_r = 
+        pd.read_fwf(f'{filename_r}.gz', widths=lenghtlist, names=list_of_columns,engine='pyarrow', dtype_backend='pyarrow', compression='gzip').to_parquet(f'{filename_r}_{run_id}.parquet', engine='pyarrow', compression='gzip')
     try:
         last_line_r=get_last_line(filename_r.replace('.right',''))
+        wc_r=get_wc_l(filename_r.replace('.right',''))
         last_line_r=last_line_r.replace(trailercntstr_r,'').strip().replace('=','')
         last_line_i_r = int(last_line_r)
+        trailer_matching_r="N"
+        if last_line_i_r == int(wc_r)-(tailrows_r+headrows_r):
+            trailer_matching_r="Y"
     except:
         last_line_i_r = 0
-
-    delete_file_if_exists(f'{filename_r}_{run_id}.parquet')
-    df_r.to_parquet(f'{filename_r}_{run_id}.parquet', engine='pyarrow', compression='gzip')
-
-    
-
+        trailer_matching_r="" 
     ic(last_line_i_l)
     ic(last_line_i_r)
-
-    #hash_df_l = create_hash_dataframe(df_l.copy(), uniq_col_list)
-    #hash_df_r = create_hash_dataframe(df_r.copy(), uniq_col_list)
     
-    delete_file_if_exists(f'{filename_l}_{run_id}_hash.parquet')
+
     create_hash_dataframe_duckdb(f'{filename_l}_{run_id}.parquet',uniq_col_list,list_of_columns,f'{filename_l}_{run_id}_hash.parquet')
-    delete_file_if_exists(f'{filename_r}_{run_id}_hash.parquet')
     create_hash_dataframe_duckdb(f'{filename_r}_{run_id}.parquet',uniq_col_list,list_of_columns,f'{filename_r}_{run_id}_hash.parquet')
-    get_extra_rows_using_keys_duckdb(f'{filename_l}_{run_id}_hash.parquet',f'{filename_r}_{run_id}_hash.parquet',f'{filename_l}_{run_id}_extra.parquet',f'{filename_r}_{run_id}_extra.parquet',f'{filename_l}_{run_id}.parquet',f'{filename_r}_{run_id}.parquet',uniq_col_list)
-    common_count,common_rows = get_common_rows_using_keys_duckdb(f'{filename_l}_{run_id}_hash.parquet',f'{filename_r}_{run_id}_hash.parquet',str(Path(Path(f'{filename_l}_{run_id}_hash.parquet').parent,f'{run_id}_common.parquet')), f'{filename_l}_{run_id}.parquet',f'{filename_r}_{run_id}.parquet',uniq_col_list,list_of_columns)
-    find_mismatched_rows_duckdb(f'{filename_l}_{run_id}_hash.parquet',f'{filename_r}_{run_id}_hash.parquet',str(Path(Path(f'{filename_l}_{run_id}_hash.parquet').parent,f'{run_id}_common.parquet')), f'{filename_l}_{run_id}.parquet',f'{filename_r}_{run_id}.parquet',uniq_col_list,list_of_columns)
+    extra_df_l, extra_df_r = get_extra_rows_using_keys_duckdb(f'{filename_l}_{run_id}_hash.parquet',f'{filename_r}_{run_id}_hash.parquet',f'{filename_l}_{run_id}_extra.parquet',f'{filename_r}_{run_id}_extra.parquet',f'{filename_l}_{run_id}.parquet',f'{filename_r}_{run_id}.parquet',uniq_col_list,compare_row_limit)
+    common_count,common_df = get_common_rows_using_keys_duckdb(f'{filename_l}_{run_id}_hash.parquet',f'{filename_r}_{run_id}_hash.parquet',str(Path(Path(f'{filename_l}_{run_id}_hash.parquet').parent,f'{run_id}_common.parquet')), f'{filename_l}_{run_id}.parquet',f'{filename_r}_{run_id}.parquet',uniq_col_list,list_of_columns)
+    mismatch_count,mismatched_df = find_mismatched_rows_duckdb(f'{filename_l}_{run_id}_hash.parquet',f'{filename_r}_{run_id}_hash.parquet',str(Path(Path(f'{filename_l}_{run_id}_hash.parquet').parent,f'{run_id}_diff.parquet')), f'{filename_l}_{run_id}.parquet',f'{filename_r}_{run_id}.parquet',uniq_col_list,list_of_columns,compare_row_limit)
+    mismatched_dict = create_diff_benedict(extra_df_l=extra_df_l, extra_df_r=extra_df_r, diff_df=mismatched_df, common_keys=uniq_col_list)
+   
 
-    # extra_df_l, extra_df_r = get_extra_rows_using_keys(
-    #     df_l.copy(), df_r.copy(),uniq_col_list
-    # )
-    # extra_df_l, extra_df_r = get_extra_rows_using_hash(hash_df_l, hash_df_r)
-    
-    # ic(extra_df_l[:10])
-    # ic(extra_df_r[:10])
-    # common_df = get_common_rows(hash_df_l, hash_df_r, ["ConcatenatedKeys", "HashValue"])
-    # print(common_df)
-    
-    mismatched_df = find_mismatched_rows(
-        hash_df_l[["ConcatenatedKeys", "HashValue"]].copy(),
-        hash_df_r[["ConcatenatedKeys", "HashValue"]].copy(),
-    )
-    ic(mismatched_df)
-
-    #To DO this needs to be fulldf: there needs to be a way for unselecting batch, only one key column not working
-    mismatched_dict = compare_mismatched_rows(hash_df_l, hash_df_r, mismatched_df,extra_df_l,extra_df_r)
-    ic(mismatched_dict)
-
-    passed_col_df = pd.DataFrame(columns=['column_name', 'ConcatenatedKeys', 'value_df_left', 'value_df_right'])
+    passed_col_df = pd.DataFrame(columns=['column_name', 'ConcatenatedKeys', 'left_side_value', 'right_side_value'])
     ic(passed_col_df)
     passed_benedict_list : list[benedict] = []
-    for column in df_l.columns:
+    for column in list_of_columns:
         #ic(column)
         for index, common_row in common_df.head(10).iterrows():
                     # New row as a DataFrame
@@ -978,30 +966,31 @@ def main():
                 continue
             item =  benedict()
             item.column_name = column
-            item.ConcatenatedKeys = common_row.ConcatenatedKeys
-            item.value_df_left = common_row[f'{column}_x']
-            item.value_df_right = common_row[f'{column}_y']
+            item.ConcatenatedKeys = common_row[f'ConcatenatedKeys_x']
+            item.left_side_value = common_row[f'{column}_x']
+            item.right_side_value = common_row[f'{column}_y']
             passed_benedict_list.append(item)
             
 
-    ic(passed_benedict_list)
+    total_rows_in_left = int(get_paraquete_rowcount(f'{filename_l}_{run_id}.parquet'))
+    total_rows_in_right = int(get_paraquete_rowcount(f'{filename_r}_{run_id}.parquet'))
 
     passed_col_df = pd.DataFrame(passed_benedict_list)
     path = f'/home/deck/Downloads/'
     report_path = Path(path,f'{get_filename_without_extension(config_path)}_report_{datetime.now().strftime("%Y%m%d%H%M%S")}.xlsx')
     with pd.ExcelWriter(report_path, engine="xlsxwriter") as writer:
         # Create a new dataframe with the column names from df_left
-        summary_df = pd.DataFrame({"ColumnName": df_l.columns})
+        summary_df = pd.DataFrame({"ColumnName": list_of_columns})
 
         # Write the dataframe to the Excel sheet
         summary_df["MatchedRowsCountLeft"] = summary_df["ColumnName"].apply(
-            lambda col: len(hash_df_l)
+            lambda col: total_rows_in_left
             - len(extra_df_l)
             - ((len(mismatched_dict[col]) if col in mismatched_dict else 0) - (len(extra_df_l)+len(extra_df_r)))
         )
 
         summary_df["MatchedRowsCountRight"] = summary_df["ColumnName"].apply(
-            lambda col: len(hash_df_r)
+            lambda col: total_rows_in_right
             - len(extra_df_r)
             - ((len(mismatched_dict[col]) if col in mismatched_dict else 0) - (len(extra_df_l)+len(extra_df_r)))
         )
@@ -1018,15 +1007,18 @@ def main():
             lambda col: len(extra_df_r)
         )
 
-        summary_df["TotalRowsInLeft"] = len(hash_df_l)
-        summary_df["TotalRowsInRight"] = len(hash_df_r)
+        summary_df["TotalRowsInLeft"] = total_rows_in_left
+        summary_df["TotalRowsInRight"] = total_rows_in_right
 
         
         summary_df = summary_df.drop([0, 1])
         meta_df = pd.DataFrame(columns=['ConfigName', 'ConfigValue'])
-        meta_df.loc[0] = ['LeftFileName', filename_l.replace('.left','')]
-        meta_df.loc[1] = ['LeftTableName', filename_r.replace('.right','')]
-
+        meta_df.loc[0] = ['LeftObjectName', filename_l.replace('.left','')]
+        meta_df.loc[1] = ['LeftObjectName', filename_r.replace('.right','')]
+        meta_df.loc[2] = ['TrailerValidationSuccessForLeft',trailer_matching_l]
+        meta_df.loc[3] = ['TrailerValidationSuccessForRight',trailer_matching_r]
+        meta_df.loc[4] = ['OverallCommonCount', str(common_count)]
+        meta_df.loc[5] = ['OverallCombinedMismatchCount', str(mismatch_count)]
 
 
         meta_df.to_excel(writer, sheet_name="MetaInfo", index=False)
@@ -1037,18 +1029,18 @@ def main():
         
         
         for column_name, differ_items in mismatched_dict.items():
-            mismatched_df = pd.DataFrame(columns=['ConcatenatedKeys', 'value_df_left', 'value_df_right'])
+            mismatched_df = pd.DataFrame(columns=['ConcatenatedKeys', 'left_side_value', 'right_side_value'])
             mismatched_bendict_list : list[benedict] = []
-            for dit in differ_items:
-                item =  benedict()
-                item.ConcatenatedKeys = dit.ConcatenatedKeys
-                item.value_df_left = dit.df_left_value
-                item.value_df_right = dit.df_right_value
-                mismatched_bendict_list.append(item)
-            mismatched_df = pd.DataFrame(mismatched_bendict_list)
+            if len(differ_items)>0:
+                for dit in differ_items:
+                    item =  benedict()
+                    item.ConcatenatedKeys = dit.ConcatenatedKeys
+                    item.left_side_value = dit.df_left_value
+                    item.right_side_value = dit.df_right_value
+                    mismatched_bendict_list.append(item)
+                mismatched_df = pd.DataFrame(mismatched_bendict_list)
+                mismatched_df.to_excel(writer, sheet_name=f"{column_name}_missmatch", index=False)
 
-            ic(extra_df_l)
-            mismatched_df.to_excel(writer, sheet_name=f"{column_name}_miss", index=False)
     highlight_positive_cells(report_path,'Summary','MisMatchedRowsCount')
     highlight_positive_cells(report_path,'Summary','ExtraInLeft')
     highlight_positive_cells(report_path,'Summary','ExtraInRight')
@@ -1056,7 +1048,22 @@ def main():
     make_header_background_grey(report_path)
     ic(report_path)
 
+    delete_file_if_exists(f'{filename_l}.gz')
+    delete_file_if_exists(f'{filename_r}.gz')
+    delete_file_if_exists(f'{filename_l}_{run_id}.parquet')
+    delete_file_if_exists(f'{filename_r}_{run_id}.parquet')
+    delete_file_if_exists(f'{filename_l}_{run_id}_hash.parquet')
+    delete_file_if_exists(f'{filename_r}_{run_id}_hash.parquet')
+    delete_file_if_exists(f'{filename_l}_{run_id}_extra.parquet')
+    delete_file_if_exists(f'{filename_r}_{run_id}_extra.parquet')
+    delete_file_if_exists(str(Path(Path(f'{filename_l}_{run_id}_hash.parquet').parent,f'{run_id}_common.parquet')))
+    delete_file_if_exists(str(Path(Path(f'{filename_l}_{run_id}_hash.parquet').parent,f'{run_id}_diff.parquet')))
 
+    
 
 if __name__ == "__main__":
+    start_time = pendulum.now()
     main()
+    end_time = pendulum.now()
+    execution_time = end_time - start_time
+    print(f"Execution time: {execution_time.total_seconds()} seconds")
