@@ -1229,7 +1229,7 @@ async def compare_objects_main(
     full_count_first=len(hash_df_left)
     full_count_second=len(hash_df_right)
     await publish_log(request=request,channels=channels,log_str=f'Count for {comparemodel.left_tbl} in {comparemodel.left_db} is {full_count_first}',config_id=comparemodel.id,logtype="info")
-    await publish_log(request=request,channels=channels,log_str=f'Count for {comparemodel.right_tbl} in {comparemodel.right_db} is {full_count_first}',config_id=comparemodel.id,logtype="info")
+    await publish_log(request=request,channels=channels,log_str=f'Count for {comparemodel.right_tbl} in {comparemodel.right_db} is {full_count_second}',config_id=comparemodel.id,logtype="info")
     df_matching = pd.merge(hash_df_left, hash_df_right, on=['ConcatenatedKeys', 'HashValue'], how='inner')
     await publish_log(request=request,channels=channels,log_str=f'Common record Count is {len(df_matching)}',config_id=comparemodel.id,logtype="info")
     await publish_log(request=request,channels=channels,log_str=f'Calculating mismatched records between two dataframes',config_id=comparemodel.id,logtype="info")
@@ -1433,6 +1433,8 @@ async def compare_objects_main(
     await publish_log(request=request,channels=channels,log_str="Excel file created.",config_id=comparemodel.id,logtype="info")
     return f"{filename}.xlsx"
 
+
+
 def get_sql_for_hashstore(db_id,table_name,request:Request,template_name,side):
     schema_name = static.SConstants.schema_names[db_id]
     db_name = static.SConstants.db_names[db_id]
@@ -1635,3 +1637,245 @@ async def get_tbl_full_hash_sql(
         .body.decode("utf-8")
     )
     return sql_statement
+
+
+
+async def compare_objects_main_new(
+    comparemodel: Tcomparemodel,
+    request: Request,
+    transaction_remote: AsyncSession,
+    transaction_remote1: AsyncSession,
+    transaction_local: AsyncSession,
+    channels: ChannelsPlugin,
+    run_id: int = 6
+) -> str:
+    filename = f"{comparemodel.config_name}_{comparemodel.id}_compare_{pendulum.now('America/Toronto').format('YYYYMMDDHHmmss')}"
+    if comparemodel.left_obj_type == "Table":
+        trans_seession_left = get_sesssion_for_transaction(
+            comparemodel.left_db, transaction_remote, transaction_remote1
+        )
+        sql_statement = await get_tbl_full_hash_sql(comparemodel, request, trans_seession_left,'left')
+        print(sql_statement)
+        result = await trans_seession_left.exec(text(sql_statement)) 
+        hash_df_left = pd.DataFrame(result.fetchall())
+        ic(hash_df_left)
+        
+
+    if comparemodel.right_obj_type == "Table":
+        trans_seession_right = get_sesssion_for_transaction(
+            comparemodel.right_db, transaction_remote, transaction_remote1
+        )
+        sql_statement = await get_tbl_full_hash_sql(comparemodel, request, trans_seession_right,'right')
+        print(sql_statement)
+        result = await trans_seession_right.exec(text(sql_statement))
+        hash_df_right = pd.DataFrame(result.fetchall())
+        ic(hash_df_right)
+
+    #==============
+    full_count_first=len(hash_df_left)
+    full_count_second=len(hash_df_right)
+    await publish_log(request=request,channels=channels,log_str=f'Count for {comparemodel.left_tbl} in {comparemodel.left_db} is {full_count_first}',config_id=comparemodel.id,logtype="info")
+    await publish_log(request=request,channels=channels,log_str=f'Count for {comparemodel.right_tbl} in {comparemodel.right_db} is {full_count_second}',config_id=comparemodel.id,logtype="info")
+    df_matching = pd.merge(hash_df_left, hash_df_right, on=['ConcatenatedKeys', 'HashValue'], how='inner')
+    await publish_log(request=request,channels=channels,log_str=f'Common record Count is {len(df_matching)}',config_id=comparemodel.id,logtype="info")
+    await publish_log(request=request,channels=channels,log_str=f'Calculating mismatched records between two dataframes',config_id=comparemodel.id,logtype="info")
+    merged_df = pd.merge(hash_df_left, hash_df_right, on='ConcatenatedKeys', how='outer', suffixes=('_df_left', '_df_right'))
+    diff_df = merged_df[merged_df['HashValue_df_left'] != merged_df['HashValue_df_right']][['ConcatenatedKeys', 'HashValue_df_left', 'HashValue_df_right']]    
+    ic(diff_df)
+    
+    hash_mismatch_all_cols_df_left = pd.DataFrame(columns=['ConcatenatedKeys'])
+    hash_mismatch_all_cols_df_right = pd.DataFrame(columns=['ConcatenatedKeys'])
+    key_tbl_pd1 = pd.DataFrame(columns=['ConcatenatedKeys'])
+    key_tbl_pd2 = pd.DataFrame(columns=['ConcatenatedKeys'])
+    # mismatch_common = pd.DataFrame(columns=['clmid'])
+    # extra_first = pd.DataFrame(columns=['clmid'])
+    # extra_second = pd.DataFrame(columns=['clmid'])
+    trd = request.app.stores.get("memory")
+    compare_limit = await trd.get(f"compare_limit")
+    if not compare_limit:
+        compare_limit = 1000
+    
+    if len(diff_df) > 0:
+        key_tbl_pd1=hash_df_left[hash_df_left['ConcatenatedKeys'].isin(diff_df['ConcatenatedKeys'])]['ConcatenatedKeys']
+        key_tbl_pd2=hash_df_right[hash_df_right['ConcatenatedKeys'].isin(diff_df['ConcatenatedKeys'])]['ConcatenatedKeys']
+
+        #left_non_async_engine = get_non_async_sesssion_for_transaction(comparemodel.left_db,request)
+        left_sql_remove_table_for_hashstore = get_remove_sql_for_hashstore(comparemodel.left_db,comparemodel.left_tbl,request,'_left')
+        await trans_seession_left.exec(text(left_sql_remove_table_for_hashstore))
+        left_sql_create_table_for_hashstore = get_create_sql_for_hashstore(comparemodel.left_db,comparemodel.left_tbl,request,'_left')
+        await trans_seession_left.exec(text(left_sql_create_table_for_hashstore))
+        #key_tbl_pd1[:compare_limit].to_sql(f'{comparemodel.left_tbl}_left_key_tmp',con=left_non_async_engine,if_exists='replace', index=False)
+        key_tbl_model_left = CreateKeyTable(f'{comparemodel.left_tbl}_left_key_tmp')
+        key_obj_list_left : list[SQLModel] = []
+        for row in key_tbl_pd1[:compare_limit]:
+            key_tbl_model_left_obj =  key_tbl_model_left(ConcatenatedKeys=row)
+            key_obj_list_left.append(key_tbl_model_left_obj)
+        trans_seession_left.add_all(key_obj_list_left)
+        await trans_seession_left.commit()
+        trans_seession_left.__init__(bind=trans_seession_left.bind)
+
+
+        sql_statement = await get_tbl_full_hash_sql(comparemodel, request, trans_seession_left,'left','yes')
+        print(sql_statement)
+        result = await trans_seession_left.exec(text(sql_statement)) 
+        hash_mismatch_all_cols_df_left = pd.DataFrame(result.fetchall())
+        await publish_log(request=request,channels=channels,log_str="Hash mismatch all columns for left table calculated.",config_id=comparemodel.id,logtype="info")
+
+
+        #right_non_async_engine = get_non_async_sesssion_for_transaction(comparemodel.right_db,request)
+        right_sql_remove_table_for_hashstore = get_remove_sql_for_hashstore(comparemodel.right_db,comparemodel.right_tbl,request,'_right')
+        await trans_seession_right.exec(text(right_sql_remove_table_for_hashstore))
+        right_sql_create_table_for_hashstore = get_create_sql_for_hashstore(comparemodel.right_db,comparemodel.right_tbl,request,'_right')
+        await trans_seession_right.exec(text(right_sql_create_table_for_hashstore))
+        #key_tbl_pd2[:compare_limit].to_sql(f'{comparemodel.right_tbl}_right_key_tmp',con=right_non_async_engine,if_exists='replace', index=False)
+        key_tbl_model_right = CreateKeyTable(f'{comparemodel.right_tbl}_right_key_tmp')
+        key_obj_list_right : list[SQLModel] = []
+        for row in key_tbl_pd2[:compare_limit]:
+            key_tbl_model_right_obj =  key_tbl_model_right(ConcatenatedKeys=row)
+            key_obj_list_right.append(key_tbl_model_right_obj)
+        trans_seession_right.add_all(key_obj_list_right)
+        await trans_seession_right.commit()
+        trans_seession_right.__init__(bind=trans_seession_left.bind)
+
+
+        sql_statement = await get_tbl_full_hash_sql(comparemodel, request, trans_seession_right,'right','yes')
+        print(sql_statement)
+        result = await trans_seession_right.exec(text(sql_statement)) 
+        hash_mismatch_all_cols_df_right = pd.DataFrame(result.fetchall())
+        await publish_log(request=request,channels=channels,log_str="Hash mismatch all columns for right table calculated.",config_id=comparemodel.id,logtype="info")
+        
+    
+
+    #transaction_remote.__init__(bind=transaction_remote.bind)
+
+    #===============
+    df_left_extra,df_right_extra = get_extra_rows_using_hash(hash_df_left, hash_df_right)
+    ic(df_left_extra)
+    ic(df_right_extra)
+
+
+    mismatched_df = find_mismatched_rows(
+        hash_df_left[["ConcatenatedKeys", "HashValue"]].copy(),
+        hash_df_right[["ConcatenatedKeys", "HashValue"]].copy(),
+    )
+    ic(hash_mismatch_all_cols_df_left)
+    mismatched_dict = compare_mismatched_rows(hash_mismatch_all_cols_df_left, hash_mismatch_all_cols_df_right, mismatched_df,df_left_extra,df_right_extra)
+    ic(mismatched_dict)
+    await publish_log(request=request,channels=channels,log_str="Mismatched rows calculated.",config_id=comparemodel.id,logtype="info")
+
+
+    passed_col_df = pd.DataFrame(columns=['column_name', 'ConcatenatedKeys', 'value_df_left', 'value_df_right'])
+    ic(passed_col_df)
+
+    if len(diff_df) > 0:
+        passed_table_sql_template = "sql/get_passed_table_rows.txt"
+    else:
+        passed_table_sql_template = "sql/get_passed_table_rows_success.txt"
+
+    passed_sql_statement_left = await get_tbl_full_hash_sql(comparemodel, request, trans_seession_left,'left','yes',passed_table_sql_template)
+    result = await trans_seession_left.exec(text(passed_sql_statement_left)) 
+    hash_passed_df_left = pd.DataFrame(result.fetchall())
+    ic(hash_passed_df_left)
+    if len(diff_df) > 0:
+        await trans_seession_left.exec(text(left_sql_remove_table_for_hashstore))
+
+    passed_sql_statement_right = await get_tbl_full_hash_sql(comparemodel, request, trans_seession_right,'right','yes',passed_table_sql_template)
+    result = await trans_seession_right.exec(text(passed_sql_statement_right)) 
+    hash_passed_df_right = pd.DataFrame(result.fetchall())
+    ic(hash_passed_df_right)
+    if len(diff_df) > 0:
+        await trans_seession_right.exec(text(right_sql_remove_table_for_hashstore))
+    
+    common_df = get_common_rows(hash_passed_df_left, hash_passed_df_right, ["ConcatenatedKeys"])
+    common_df.set_index('ConcatenatedKeys', inplace=False)
+    ic(common_df)
+    await publish_log(request=request,channels=channels,log_str="Common rows calculated.",config_id=comparemodel.id,logtype="info")
+
+    passed_benedict_list : list[benedict] = []
+
+    for column in hash_passed_df_left.columns:
+        #ic(column)
+        for index, common_row in common_df.head(10).iterrows():
+                    # New row as a DataFrame
+            if column in ['ConcatenatedKeys','HashValue']:
+                continue
+            item =  benedict()
+            item.column_name = column
+            item.ConcatenatedKeys = common_row.ConcatenatedKeys
+            item.value_df_left = common_row[f'{column}_x']
+            item.value_df_right = common_row[f'{column}_y']
+            passed_benedict_list.append(item)
+    passed_col_df = pd.DataFrame(passed_benedict_list)
+    path = f'/home/deck/Downloads'
+    file = f'{path}/{filename}.xlsx'
+    with pd.ExcelWriter(file, engine="xlsxwriter") as writer:
+        # Create a new dataframe with the column names from df_left
+        summary_df = pd.DataFrame({"ColumnName": hash_passed_df_left.columns})
+
+        # Write the dataframe to the Excel sheet
+        summary_df["MatchedRowsCountLeft"] = summary_df["ColumnName"].apply(
+            lambda col: len(hash_df_left)
+            - len(df_left_extra)
+            - ((len(mismatched_dict[col]) if col in mismatched_dict else 0) - (len(df_left_extra)+len(df_right_extra)))
+        )
+
+        summary_df["MatchedRowsCountRight"] = summary_df["ColumnName"].apply(
+            lambda col: len(hash_df_right)
+            - len(df_right_extra)
+            - ((len(mismatched_dict[col]) if col in mismatched_dict else 0) - (len(df_left_extra)+len(df_right_extra)))
+        )
+
+
+        summary_df["MisMatchedRowsCount"] = summary_df["ColumnName"].apply(
+            lambda col: (len(mismatched_dict[col]) if col in mismatched_dict else 0)
+        )
+
+        summary_df["ExtraInLeft"] = summary_df["ColumnName"].apply(
+            lambda col: len(df_left_extra)
+        )
+        summary_df["ExtraInRight"] = summary_df["ColumnName"].apply(
+            lambda col: len(df_right_extra)
+        )
+
+        summary_df["TotalRowsInLeft"] = len(hash_df_left)
+        summary_df["TotalRowsInRight"] = len(hash_df_right)
+
+        
+        summary_df = summary_df.drop([0, 1])
+        meta_df = pd.DataFrame(columns=['ConfigName', 'ConfigValue'])
+        meta_df.loc[0] = ['LeftDatabaseName', static.SConstants.db_names[comparemodel.left_db]]
+        meta_df.loc[1] = ['LeftTableName', comparemodel.left_tbl]
+        meta_df.loc[2] = ['RightDatabaseName', static.SConstants.db_names[comparemodel.right_db]]
+        meta_df.loc[3] = ['RightTableName', comparemodel.right_tbl]
+        meta_df.loc[4] = ['UniqueColumns', comparemodel.unique_columns]
+        meta_df.loc[5] = ['ExcludedColumns', comparemodel.columns_to_exclude]
+
+
+        meta_df.to_excel(writer, sheet_name="MetaInfo", index=False)
+
+        summary_df.to_excel(writer, sheet_name="Summary", index=False)
+        passed_col_df.to_excel(writer, sheet_name="PassRecordSummary", index=False)
+
+        
+        
+        for column_name, differ_items in mismatched_dict.items():
+            mismatched_df = pd.DataFrame(columns=['ConcatenatedKeys', 'value_df_left', 'value_df_right'])
+            mismatched_bendict_list : list[benedict] = []
+            for dit in differ_items:
+                item =  benedict()
+                item.ConcatenatedKeys = dit.ConcatenatedKeys
+                item.value_df_left = dit.df_left_value
+                item.value_df_right = dit.df_right_value
+                mismatched_bendict_list.append(item)
+            mismatched_df = pd.DataFrame(mismatched_bendict_list)
+
+            ic(df_left_extra)
+            mismatched_df.to_excel(writer, sheet_name=f"{column_name}_miss", index=False)
+    await highlight_positive_cells(file,'Summary','MisMatchedRowsCount')
+    await highlight_positive_cells(file,'Summary','ExtraInLeft')
+    await highlight_positive_cells(file,'Summary','ExtraInRight')
+    await highlight_cells_with_value(file,'Does_Not_Exists')
+    await make_header_background_grey(file)
+    await publish_log(request=request,channels=channels,log_str="Excel file created.",config_id=comparemodel.id,logtype="info")
+    return f"{filename}.xlsx"
+

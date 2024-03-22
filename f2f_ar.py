@@ -949,8 +949,10 @@ def main():
 
     create_hash_dataframe_duckdb(f'{filename_l}_{run_id}.parquet',uniq_col_list,list_of_columns,f'{filename_l}_{run_id}_hash.parquet')
     create_hash_dataframe_duckdb(f'{filename_r}_{run_id}.parquet',uniq_col_list,list_of_columns,f'{filename_r}_{run_id}_hash.parquet')
+    
     extra_df_l, extra_df_r = get_extra_rows_using_keys_duckdb(f'{filename_l}_{run_id}_hash.parquet',f'{filename_r}_{run_id}_hash.parquet',f'{filename_l}_{run_id}_extra.parquet',f'{filename_r}_{run_id}_extra.parquet',f'{filename_l}_{run_id}.parquet',f'{filename_r}_{run_id}.parquet',uniq_col_list,compare_row_limit)
     common_count,common_df = get_common_rows_using_keys_duckdb(f'{filename_l}_{run_id}_hash.parquet',f'{filename_r}_{run_id}_hash.parquet',str(Path(Path(f'{filename_l}_{run_id}_hash.parquet').parent,f'{run_id}_common.parquet')), f'{filename_l}_{run_id}.parquet',f'{filename_r}_{run_id}.parquet',uniq_col_list,list_of_columns)
+    
     mismatch_count,mismatched_df = find_mismatched_rows_duckdb(f'{filename_l}_{run_id}_hash.parquet',f'{filename_r}_{run_id}_hash.parquet',str(Path(Path(f'{filename_l}_{run_id}_hash.parquet').parent,f'{run_id}_diff.parquet')), f'{filename_l}_{run_id}.parquet',f'{filename_r}_{run_id}.parquet',uniq_col_list,list_of_columns,compare_row_limit)
     mismatched_dict = create_diff_benedict(extra_df_l=extra_df_l, extra_df_r=extra_df_r, diff_df=mismatched_df, common_keys=uniq_col_list)
    
