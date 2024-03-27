@@ -476,8 +476,8 @@ async def main():
     # file_name = #ic(await task1)
     # copyfile(file_name, "test2_20240115.csv")
 
-    df1 = pd.read_csv("/home/deck/devlopment/demo/others/test1_20240115.csv", delimiter=",", quotechar='"', skiprows=1)
-    df2 = pd.read_csv("/home/deck/devlopment/demo/others/test2_20240115.csv", delimiter=",", quotechar='"', skiprows=1)
+    df1 = pd.read_csv("/home/deck/devlopment/litestardemo/others/test1_20240115.csv", delimiter=",", quotechar='"', skiprows=1)
+    df2 = pd.read_csv("/home/deck/devlopment/litestardemo/others/test2_20240115.csv", delimiter=",", quotechar='"', skiprows=1)
 
     # Remove last row from df1
     df1 = df1.iloc[:-1]

@@ -491,7 +491,7 @@ async def get_clean_table_name(full_name: str) -> str:
     return table_name
 
 async def read_batch_date_file() -> date:
-    file_path: str = "/home/deck/devlopment/demo/batch_date.txt"
+    file_path: str = "/home/deck/devlopment/litestardemo/batch_date.txt"
     with open(file_path, "r") as file:
         batch_date_str = file.read().strip()
         batch_date = pendulum.from_format(batch_date_str, "YYYYMMDD").date()

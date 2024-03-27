@@ -1,5 +1,5 @@
 appcode: heavy
-password: 'xxxx'
+password: 'password'
 password_command: "echo ${.password}"
 defaults:
   - _self_

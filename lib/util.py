@@ -42,7 +42,7 @@ def decrpyt_password(cybeark_string):
         exit(1)
     return output_str.strip()
 
-def get_engine(cfg: DictConfig, key: str)  -> Engine:
+def get_engine(cfg: DictConfig, key: str)  -> Engine:   
     connection_string = cfg[key].vendor.connection_string
     if key != "local":
         password=decrpyt_password(cfg[key].password_command)
@@ -367,3 +367,5 @@ async def make_header_background_grey(excel_filename):
 
     except Exception as e:
         print(f"Error: {str(e)}")
+
+

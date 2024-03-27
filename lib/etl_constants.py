@@ -1,0 +1,2 @@
+
+TABLE_BCP_EXTRACTOR='table_bcp_extractor'

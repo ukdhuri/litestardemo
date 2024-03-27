@@ -4,12 +4,22 @@ from litestar.stores.file import FileStore
 from pathlib import Path
 
 memorystore = MemoryStore()
-root_store = RedisStore.with_client()
-tempdatard_store = root_store.with_namespace("tempdatard")
-cache_store = root_store.with_namespace("cache")
-session_store = root_store.with_namespace("sessions")
+#root_store = RedisStore.with_client()
+root_store = MemoryStore()
+#tempdatard_store = root_store.with_namespace("tempdatard")
+
+tempdatard_store = MemoryStore()
+cache_store = MemoryStore()
+sessions = MemoryStore()
+tempdatard_store = MemoryStore()
+session_store = MemoryStore()
+
+
+
+#cache_store = root_store.with_namespace("cache")
+#session_store = root_store.with_namespace("sessions")
 #tempdatard_store = MemoryStore().get("tempdatard")
-sessions = root_store.with_namespace("sessions")
+#sessions = root_store.with_namespace("sessions")
 tempdatafs_store  = MemoryStore()
 #tempdatafs_store=FileStore(Path("tempdatafs"))
 response_cache_store = MemoryStore()

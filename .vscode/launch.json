@@ -12,6 +12,7 @@
             "request": "launch",
             "module": "uvicorn",
             "justMyCode": true,
+            "console": "integratedTerminal",
             "args": [
                 "app:app",
                 "--port",
@@ -43,7 +44,8 @@
             "request": "launch",
             "module": "litestar",
             "justMyCode": true,
-            "args": ["run" ,"--reload","--port","9999"]
+            "console": "integratedTerminal",
+            "args": ["run" ,"--reload","--port","9999","&&", "exit"]
         }
     ]
 }

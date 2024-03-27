@@ -722,7 +722,7 @@ def create_csv_file(colmapping, filename1,sep):
     shutil.copy(filename1, f'{filename1}.bak2')
     ic(filename1)
 
-    script_path = '/home/deck/devlopment/demo/fixedlenghtconv.sh'
+    script_path = '/home/deck/devlopment/litestardemo/fixedlenghtconv.sh'
     subprocess.run([script_path, filename1])
     if os.path.exists(temp_filename):
         os.remove(temp_filename)
@@ -895,7 +895,7 @@ def main():
 
 
 
-    script_path = '/home/deck/devlopment/demo/cleanheadandtail.sh'
+    script_path = '/home/deck/devlopment/litestardemo/cleanheadandtail.sh'
     param1 = f'{filename_l}'
     param2 = str(headrows_l)
     param3 = str(tailrows_l)
@@ -921,7 +921,7 @@ def main():
 
     #df_l.to_parquet(f'{filename_l}_{run_id}.parquet', engine='pyarrow', compression='gzip')
 
-    script_path = '/home/deck/devlopment/demo/cleanheadandtail.sh'
+    script_path = '/home/deck/devlopment/litestardemo/cleanheadandtail.sh'
     param1 = f'{filename_r}'
     param2 = str(headrows_r)
     param3 = str(tailrows_r)

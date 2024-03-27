@@ -13,10 +13,6 @@ from sqlmodel.ext.asyncio.session import AsyncSession
 # <!-- <tbody  id="scr_tbody"  hx-swap-oob="afterbegin"> -->
 #   hx-swap="multi:{% for config_run_row in config_run_id_tbl %}#scrid_{{ config_run_row.id }}{% if not loop.last %},{% endif %}{% endfor %}:afterned"
 
-
-
-
-
 async def my_async_function():
     # Your asynchronous code here
     await asyncio.sleep(1)

@@ -1,0 +1,103 @@
+---
+# Sample YAML configuration
+
+#any new varialbe will be added in this sample yaml
+# Following varialbes are available to use directely without defining in file
+# BDATE = this is business date, follows business schedule of working days
+# CDATE = this is current datetime, follows system date. Thsi contains time, you can format it as per your requirement
+# CTIME = same as abolve
+
+# ENV = this is environment, follows environment Value, comes from command line parameter
+
+# Define job name
+name: first_job
+group_seperator: "¶"
+component_seperator: "•"
+ingnorable_character: '🧹'
+
+common_variables:
+  test_varialbe: "test_value"
+  test_varialbe1: "test_value2"
+
+
+# Define job steps
+job_steps:
+  - step1:
+      type: bcp_loader
+      input_file:
+        file_path: "/home/data/abc"
+        file_prefix: "abasicfile_¶businessdate•float•YYYY-MM-DD¶"
+        file_ext: ".csv"
+        file_header_cnt: 3
+        file_trailer_count: 2
+        file_headers_in_order_to_validate:
+          - "FILENAME=abasicfile_¶businessdate•date•YYYY-MM-DD¶ BUSINESS_DATE=¶BDATE•date•YYYY-MM-DD¶  CREATION_TIME=🧹🧹🧹🧹🧹🧹🧹🧹🧹🧹🧹🧹🧹🧹"
+          - 'col1,col2,col3,col4,col5'
+        file_trailers_in_order_to_validate:
+        - 'RECORDCOUNT=¶sourcefiledatacount•int•08d¶'
+      step_database: first_database1
+      bcp_table: first_table1
+      local_variable:
+        test_varialbe1: "test_value"
+  - step2:
+      type: sql_executor
+      sql_file_name: 'first_job.sql'
+      step_database: first_database1 
+  - step3:
+      type: python_transformer
+      local_variable:
+        test_varialbe1: "test_value"
+      function_name: 'first_job_transformer'
+  - step4:
+      type: sqltable_bcp_extractor
+      sql_file_name: 'first_job1.sql'
+      step_database: first_database1
+      output_file:
+        file_headers_in_order:
+          - "FILENAME=abasicfile_¶businessdate•date•YYYY-MM-DD¶ BUSINESS_DATE=¶BDATE•date•YYYY-MM-DD¶  CREATION_TIME=🧹🧹🧹🧹🧹🧹🧹🧹🧹🧹🧹🧹🧹🧹"
+          - 'col1,col2,col3,col4,col5'
+        file_trailers_in_order:
+          - 'RECORDCOUNT=¶sourcefiledatacount•int•08d¶'
+        file_path: "/home/data/abc"
+        file_prefix: "abasicfile_¶businessdate•float•YYYY-MM-DD¶"
+        file_ext: ".csv"
+  - step5:
+      type: table_bcp_extractor
+      table_name: 'Heavydev.dbo.product'
+      step_database: remote
+      output_file:
+        file_headers_in_order:
+          - "FILENAME=abasicfile_¶businessdate•date•YYYY-MM-DD¶ BUSINESS_DATE=¶BDATE•date•YYYY-MM-DD¶  CREATION_TIME=🧹🧹🧹🧹🧹🧹🧹🧹🧹🧹🧹🧹🧹🧹"
+          - 'col1,col2,col3,col4,col5'
+        file_trailers_in_order:
+          - 'RECORDCOUNT=¶sourcefiledatacount•int•08d¶'
+        file_path: "/home/data/abc"
+        file_prefix: "abasicfile_¶businessdate•float•YYYY-MM-DD¶"
+        file_ext: ".csv"
+  - step6:
+      type: sql_panda_extractor
+      sql_file_name: 'first_job1.sql'
+      step_database: first_database1
+      output_file:
+        file_headers_in_order:
+          - "FILENAME=abasicfile_¶businessdate•date•YYYY-MM-DD¶ BUSINESS_DATE=¶BDATE•date•YYYY-MM-DD¶  CREATION_TIME=🧹🧹🧹🧹🧹🧹🧹🧹🧹🧹🧹🧹🧹🧹"
+          - 'col1,col2,col3,col4,col5'
+        file_trailers_in_order:
+          - 'RECORDCOUNT=¶sourcefiledatacount•int•08d¶'
+        file_path: "/home/data/abc"
+        file_prefix: "abasicfile_¶businessdate•float•YYYY-MM-DD¶"
+        file_ext: ".csv"
+  - step7:
+      type: table_panda_extractor
+      table_name: 'first_job1'
+      step_database: first_database1
+      output_file:
+        file_headers_in_order:
+          - "FILENAME=abasicfile_¶businessdate•date•YYYY-MM-DD¶ BUSINESS_DATE=¶BDATE•date•YYYY-MM-DD¶  CREATION_TIME=🧹🧹🧹🧹🧹🧹🧹🧹🧹🧹🧹🧹🧹🧹"
+          - 'col1,col2,col3,col4,col5'
+        file_trailers_in_order:
+          - 'RECORDCOUNT=¶sourcefiledatacount•int•08d¶'
+        file_path: "/home/data/abc"
+        file_prefix: "abasicfile_¶businessdate•float•YYYY-MM-DD¶"
+        file_ext: ".csv"
+

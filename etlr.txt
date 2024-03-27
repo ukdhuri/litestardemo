@@ -1,0 +1,6 @@
+hydra-core
+icecream
+loguru
+click
+asyncclick
+pendulum

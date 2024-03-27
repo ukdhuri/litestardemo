@@ -1,15 +1,19 @@
-logpath: '/home/deck/devlopment/litestardemo/logs'
+logpath: './logs'
+batch_date_path: "/home/deck/devlopment/litestardemo/batch_date.txt"
+
 
 defaults:
   - _self_
-  - db@remote: heavy
+  - db@remote_dev: heavy
   - db@remote1: wow
   - db@local: savefile
 
-  - env@remote: dev
+  - env@remote_dev: dev
   - env@remote1: dev
   - env@local: dev
 
-  - db_env@remote: "${db@remote}_${env@remote}"
+  - db_env@remote_dev: "${db@remote_dev}_${env@remote_dev}"
   - db_env@remote1: "${db@remote1}_${env@remote1}"
   - db_env@local: "${db@local}_${env@local}"
+
+
