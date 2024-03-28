@@ -46,6 +46,14 @@
             "justMyCode": true,
             "console": "integratedTerminal",
             "args": ["run" ,"--reload","--port","9999","&&", "exit"]
-        }
+        },
+        {
+            "name": "ETL",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "etl.py",
+            "console": "integratedTerminal",
+            "justMyCode": true
+        },
     ]
 }

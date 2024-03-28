@@ -6,14 +6,29 @@
 # BDATE = this is business date, follows business schedule of working days
 # CDATE = this is current datetime, follows system date. Thsi contains time, you can format it as per your requirement
 # CTIME = same as abolve
-
+# FILELINECNT = this is file line count, number of lines in data file
+# BCPPROCROWCNT = this is total number of record processed by bcp utility
 # ENV = this is environment, follows environment Value, comes from command line parameter
 
+# OUPUTFILELINES = this is output file line count, number of lines in output file (this is of the file including header and trailer)
+# INPUTFILELINES = this is input file line count, number of lines in input file (including header and trailer)
+# INPUTFILEDATALINECOUNT = number of line in inputfile excluding header and trailer
+# OUTPUTFILERDATALINECOUNT = number of line in output file excluding header and trailer, this number can differ from actual records in file if some data contains new line character
+# INPUTDATAFRAMELENGHT = this is input data frame lenght, number of rows in input data frame
+# OUTPUTDATAFRAMELENGHT = this is output data frame lenght, number of rows in output data frame
+
+# FILELINECOUNT =  this is  file line count, number of lines in file
+# DATALINECOUNT = = number of line in output file excluding header and trailer, this number can differ from actual records in file if some data contains new line character
+# FILENAME = Inside input or output file configuration, this will be replaced by current file name after processing placeholder but without base path
+# FULLFILENAME = Inside input or output file configuration, this will be replaced by current file name after processing placeholder with base path
+# FILENAMEWE = Inside input or output file configuration, this will be replaced by current file name after processing placeholder but without base path and extension
+# EXPECTEDLINECOUNT = this is expected final count, sum of datalinecount and all the headers and trailers
 # Define job name
 name: first_job
 group_seperator: "¶"
 component_seperator: "•"
 ingnorable_character: '🧹'
+child_access_symbol: '→'
 
 common_variables:
   test_varialbe: "test_value"
@@ -49,7 +64,7 @@ job_steps:
         test_varialbe1: "test_value"
       function_name: 'first_job_transformer'
   - step4:
-      type: sqltable_bcp_extractor
+      type: sql_bcp_extractor
       sql_file_name: 'first_job1.sql'
       step_database: first_database1
       output_file:
@@ -65,15 +80,21 @@ job_steps:
       type: table_bcp_extractor
       table_name: 'Heavydev.dbo.product'
       step_database: remote
+      validate: True
       output_file:
-        file_headers_in_order:
-          - "FILENAME=abasicfile_¶businessdate•date•YYYY-MM-DD¶ BUSINESS_DATE=¶BDATE•date•YYYY-MM-DD¶  CREATION_TIME=🧹🧹🧹🧹🧹🧹🧹🧹🧹🧹🧹🧹🧹🧹"
-          - 'col1,col2,col3,col4,col5'
-        file_trailers_in_order:
-          - 'RECORDCOUNT=¶sourcefiledatacount•int•08d¶'
-        file_path: "/home/data/abc"
-        file_prefix: "abasicfile_¶businessdate•float•YYYY-MM-DD¶"
-        file_ext: ".csv"
+        delimiter: "|"
+        quote_char : '🤩🤣'
+        escape_char: '\'
+        path: "/home/deck/outbound"
+        prefix: "FirstTestSample_¶BDATE•date•YYYYMMDD¶"
+        ext: ".csv"
+        headers_in_order:
+          - "FILENAME=¶step5→output_file→FILENAME•str• <66¶ BATCH_DATE=¶BDATE•date•YYYY-MM-DD¶  CREATED_AT=¶CTIME•date•YYYY-MM-DDHH:mm:ss¶"
+          - 'id,name,description,price'
+          - 'xxxxxxxxxxxx'
+        trailers_in_order:
+          - 'RECORDCOUNT=¶step5→BCPPROCROWCNT•int•08d¶'
+          - 'LINECOUNT=¶step5→output_file→EXPECTEDLINECOUNT•int•08d¶'
   - step6:
       type: sql_panda_extractor
       sql_file_name: 'first_job1.sql'
@@ -100,4 +121,6 @@ job_steps:
         file_path: "/home/data/abc"
         file_prefix: "abasicfile_¶businessdate•float•YYYY-MM-DD¶"
         file_ext: ".csv"
+
+
 

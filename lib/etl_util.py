@@ -39,8 +39,13 @@ def repl(match):
     var_type = match.group(2)
     format_string = match.group(3)
 
-    var_value = context_dict.get(var_name)
-    
+    if var_name == 'CDATE' or var_name == 'CDATETIME' or var_name == 'CTIME':
+        var_value = pendulum.now()
+    else:
+        if not context_dict.job_cfg.child_access_symbol in var_name:
+            var_value = context_dict[var_name]
+        else:
+            var_value = context_dict.job_steps_dict[var_name.replace(context_dict.job_cfg.child_access_symbol,'.')]
     # Format the variable based on its type
     if var_type == 'date':
         formatted_var = var_value.format(format_string)
@@ -73,9 +78,8 @@ def get_number_of_lines(file_path):
         command = f"powershell -Command \"(Get-Content -Path '{file_path}').Count\""
     else:
         raise OSError("Unsupported operating system")
+    return int(run_subprocess_command(command))
 
-    result = subprocess.run(command, shell=True, capture_output=True, text=True)
-    output = result.stdout.strip()
 
 @logger.catch(reraise=True)
 def create_pair_list(lst):
@@ -92,9 +96,7 @@ def get_nth_line_from_top(file_path, n):
         command = f"powershell -Command \"Get-Content -Path '{file_path}' -TotalCount {n} | Select-Object -First {n}\""
     else:
         command = f"head -n {n} {file_path} | tail -1"
-    result = subprocess.run(command, shell=True, capture_output=True, text=True)
-    output = result.stdout.strip()
-    return output
+    return run_subprocess_command(command)
 
 # index starts at 1
 @logger.catch(reraise=True)
@@ -103,9 +105,8 @@ def get_nth_line_from_bottom(file_path, n):
         command = f"powershell -Command \"Get-Content -Path '{file_path}' -Tail {n}\""
     else:
         command = f"tail -n {n} {file_path} | head -1"
-    result = subprocess.run(command, shell=True, capture_output=True, text=True)
-    output = result.stdout.strip()
-    return output 
+    return run_subprocess_command(command)
+
 
 @logger.catch(reraise=True)
 def remove_text_between_positions(text, positions):
@@ -205,3 +206,37 @@ def check_key_value(dictionary, key):
     if key not in dictionary or dictionary[key] is None or str(dictionary[key]) == '':
         return False
     return True
+
+@logger.catch(reraise=True)
+def run_subprocess_command(command,check_error=True,check_status=True,show_command=""):
+    if not show_command:
+        show_command = command
+    logger.info(f"Executing subprocess command {show_command}")
+    result = subprocess.run(command, shell=True, capture_output=True, text=True)
+    output_str = result.stdout.strip()
+    error_message = ""
+    if check_status:
+        if result.returncode != 0:
+            logger.error(f"Subprocess command {show_command} failed with return code {result.returncode} and error message {result.stderr} with output {output_str}")
+            if result.stderr:
+                error_message = f"Std Error ⚠️ {result.stderr} ⚠️"
+            raise Exception("Subprocess execution failed")
+    if check_error:
+        if "ERROR" in output_str.upper():
+            if result.stderr:
+                error_message = f"Std Error ⚠️ {result.stderr} ⚠️"
+            logger.error(f"Subprocess command {show_command} completed with return code {result.returncode} with output {output_str} ")
+            raise Exception("Subprocess execution failed") 
+    if result.returncode == 0:
+        logger.info(f"Subprocess command {show_command} executed successfully with output {output_str} -- {result.stderr}")
+    status_code = result.returncode
+    if result.stderr:
+        error_message = f"Std Error ⚠️ {result.stderr} ⚠️"
+    logger.info(f"Subprocess command {show_command} executed with status code {status_code} and output \n{output_str} {error_message} ")
+    return output_str
+
+def check_mandatory_proeperties(dictionary, items):
+    for item in items:
+        if item not in dictionary:
+            logger.error(f"Property '{item}' not found in the configuration")
+            raise Exception(f"Property '{item}' not found in the configuration")
