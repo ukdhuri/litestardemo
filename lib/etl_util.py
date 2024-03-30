@@ -10,6 +10,7 @@ import pendulum
 from benedict import benedict
 from .etl_context import context_dict
 from loguru import logger
+import os
 
 def decrpyt_password(cybeark_string):
     p = subprocess.Popen(cybeark_string, shell=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
@@ -32,6 +33,14 @@ async def get_batch_date_str(batch_date_path,format) -> date:
 
 async def get_current_date_time_str(format):
     return pendulum.now().format(format)
+
+
+def check_and_delete_file(file_path):
+    if os.path.exists(file_path):
+        os.remove(file_path)
+        logger.info(f"File {file_path} deleted successfully.")
+    else:
+        logger.info(f"File {file_path} does not exist.")
 
 
 @logger.catch(reraise=True)
@@ -92,6 +101,16 @@ def create_pair_list(lst):
 
 #index starts at 1
 @logger.catch(reraise=True)
+def get_n_lines_from_top(file_path, n):
+    if platform.system() == 'Windows':
+        command = f"powershell -Command \"Get-Content -Path '{file_path}' -TotalCount {n}\""
+    else:
+        command = f"head -n {n} {file_path}"
+    output = run_subprocess_command(command)
+    lines = output.splitlines()
+    return lines
+
+@logger.catch(reraise=True)
 def get_nth_line_from_top(file_path, n):
     if platform.system() == 'Windows':
         command = f"powershell -Command \"Get-Content -Path '{file_path}' -TotalCount {n} | Select-Object -First {n}\""
@@ -108,6 +127,15 @@ def get_nth_line_from_bottom(file_path, n):
         command = f"tail -n {n} {file_path} | head -1"
     return run_subprocess_command(command)
 
+
+def get_last_n_lines(file_path, n):
+    if platform.system() == 'Windows':
+        command = f"powershell -Command \"Get-Content -Path '{file_path}' -Tail {n}\""
+    else:
+        command = f"tail -n {n} {file_path}"
+    output = run_subprocess_command(command)
+    lines = output.splitlines()
+    return lines
 
 @logger.catch(reraise=True)
 def remove_text_between_positions(text, positions):
@@ -177,7 +205,6 @@ def get_number_of_lines(file_path):
     output = result.stdout.strip()
     return int(output)
 
-
 def process_job_steps(list_of_dicts):
     """
     Process a list of dictionaries and returns two dictionaries.
@@ -210,7 +237,7 @@ def check_key_value(dictionary, key):
     return True
 
 @logger.catch(reraise=True)
-def run_subprocess_command(command,check_error=True,check_status=True,show_command=""):
+def run_subprocess_command(command,check_error=True,check_status=True,show_command="",additional_log_files=[]):
     if not show_command:
         show_command = command
     logger.info(f"Executing subprocess command {show_command}")
@@ -222,19 +249,26 @@ def run_subprocess_command(command,check_error=True,check_status=True,show_comma
             logger.error(f"Subprocess command {show_command} failed with return code {result.returncode} and error message {result.stderr} with output {output_str}")
             if result.stderr:
                 error_message = f"Std Error ⚠️ {result.stderr} ⚠️"
+            for log_file in additional_log_files:
+                if os.path.exists(log_file):
+                    logger.info(f"Additional log file {log_file} content: {read_file(log_file)}")
             raise Exception("Subprocess execution failed")
     if check_error:
-        if "ERROR" in output_str.upper():
+        if "ERROR" in output_str.upper() or 'FAILED' in output_str.upper() or 'EXCEPTION' in output_str.upper() or 'TRACEBACK' in output_str.upper() or 'STACKTRACE' in output_str.upper():
             if result.stderr:
                 error_message = f"Std Error ⚠️ {result.stderr} ⚠️"
             logger.error(f"Subprocess command {show_command} completed with return code {result.returncode} with output {output_str} ")
+            for log_file in additional_log_files:
+                if os.path.exists(log_file):
+                    log_content = read_file(log_file)
+                    logger.info(f"Additional log file {log_file} content: {read_file(log_file)}")
             raise Exception("Subprocess execution failed") 
     if result.returncode == 0:
         logger.info(f"Subprocess command {show_command} executed successfully with output {output_str} -- {result.stderr}")
     status_code = result.returncode
     if result.stderr:
         error_message = f"Std Error ⚠️ {result.stderr} ⚠️"
-    logger.info(f"Subprocess command {show_command} executed with status code {status_code} and output \n{output_str} {error_message} ")
+        logger.info(f"Subprocess command {show_command} executed with status code {status_code} and output \n{output_str} {error_message} ")
     return output_str
 
 def check_mandatory_proeperties(dictionary, items):

@@ -17,12 +17,19 @@
 # INPUTDATAFRAMELENGHT = this is input data frame lenght, number of rows in input data frame
 # OUTPUTDATAFRAMELENGHT = this is output data frame lenght, number of rows in output data frame
 
-# FILELINECOUNT =  this is  file line count, number of lines in file
+# AUTOPOPULATECOLNAMES = value of this will be replaced by column names of the file, this is used in headers_in_order. This variable should be sole vaiable in the string
+# FILELINECOUNT =  this is file line count, number of lines in file
 # DATALINECOUNT = = number of line in output file excluding header and trailer, this number can differ from actual records in file if some data contains new line character
 # FILENAME = Inside input or output file configuration, this will be replaced by current file name after processing placeholder but without base path
 # FULLFILENAME = Inside input or output file configuration, this will be replaced by current file name after processing placeholder with base path
 # FILENAMEWE = Inside input or output file configuration, this will be replaced by current file name after processing placeholder but without base path and extension
-# EXPECTEDLINECOUNT = this is expected final count, sum of datalinecount and all the headers and trailers
+# EXPECTEDFILELINECOUNT = this is expected final count, sum of datalinecount and all the headers and trailers
+# EXPECTEDDATALINECOUNT = this is expected data line count, without header and trailer lines
+
+
+#write a python funtion to generate sql query, you may use jinja2, in this i will pass source table anem and target table name both have 
+
+
 # Define job name
 name: first_job
 group_seperator: "¶"
@@ -37,12 +44,64 @@ common_variables:
 
 # Define job steps
 job_steps:
+  - stepy:
+      type: table_pandas_loader
+      load_type: truncate_and_load #other types are append_load and merge_load
+      table:
+        name: 'product2'
+        database: remote
+        validate: True #only supported in loader
+      file:
+        validate: True
+        type: delimitedfile
+        header_delimiter: ","
+        header_quote_char: '"'  #optional default is empty
+        delimiter: "|" #optional default is ','
+        quote_char : '🤩'  #optional default is empty
+        escape_char: '\'  #optional default is \, not used in bcp as of now, used for pandas
+        path: "/home/deck/outbound"
+        prefix: "FirstTestSamplex_¶BDATE•date•YYYYMMDD¶"
+        ext: ".csv"
+        headers_in_order:
+          - "FILENAME=¶stepy→file→FILENAME•str• <66¶ BATCH_DATE=¶BDATE•date•YYYY-MM-DD¶  CREATED_AT=🧹🧹🧹🧹🧹🧹🧹🧹🧹🧹🧹🧹🧹🧹🧹🧹🧹🧹"
+          - '"id","name","description","price"'
+          - ''
+        trailers_in_order:
+          - 'RECORDCOUNT=¶stepy→file→EXPECTEDDATALINECOUNT•int•08d¶'
+          - 'LINECOUNT=¶stepy→file→FILELINECOUNT•int•08d¶'
+        dataframe_columns: 'id,name,description,price'
+  - stepx:
+      type: table_bcp_loader
+      load_type: truncate_and_load #other types are append_load and merge_load
+      table:
+        name: 'Heavydev.dbo.product1'
+        database: remote
+        validate: True #only supported in loader
+      file:
+        validate: True
+        type: delimitedfile
+        header_delimiter: ","
+        header_quote_char: '"'  #optional default is empty
+        delimiter: "|" #optional default is ','
+        quote_char : '🤩'  #optional default is empty
+        escape_char: '\'  #optional default is \, not used in bcp as of now, used for pandas
+        path: "/home/deck/outbound"
+        prefix: "FirstTestSamplex_¶BDATE•date•YYYYMMDD¶"
+        ext: ".csv"
+        headers_in_order:
+          - "FILENAME=¶stepx→file→FILENAME•str• <66¶ BATCH_DATE=¶BDATE•date•YYYY-MM-DD¶  CREATED_AT=🧹🧹🧹🧹🧹🧹🧹🧹🧹🧹🧹🧹🧹🧹🧹🧹🧹🧹"
+          - '"id","name","description","price"'
+          - ''
+        trailers_in_order:
+          - 'RECORDCOUNT=¶stepx→file→EXPECTEDDATALINECOUNT•int•08d¶'
+          - 'LINECOUNT=¶stepx→file→FILELINECOUNT•int•08d¶'
   - step1:
       type: sql_bcp_extractor
-      sql_file_name: 'first_job_sql_query.sql'
-      step_database: remote
-      validate: False
-      output_file:
+      sqlfile:
+        name: 'first_job_sql_query.sql'
+        database: remote
+      file:
+        type: delimitedfile
         delimiter: "," #optional default is ','
         quote_char : '🤣'  #optional default is empty
         escape_char: '\'  #optional default is \, not used in bcp as of now, for future usey 
@@ -50,47 +109,53 @@ job_steps:
         prefix: "FirstTestSample_¶BDATE•date•YYYYMMDD¶"
         ext: ".csv"
         headers_in_order:
-          - "FILENAME=¶step1→output_file→FILENAME•str• <66¶ BATCH_DATE=¶BDATE•date•YYYY-MM-DD¶  CREATED_AT=¶CTIME•date•YYYY-MM-DDHH:mm:ss¶"
-          - 'AUTOPOPULATE'
+          - "FILENAME=¶step1→file→FILENAME•str• <66¶ BATCH_DATE=¶BDATE•date•YYYY-MM-DD¶  CREATED_AT=¶CTIME•date•YYYY-MM-DDHH:mm:ss¶"
+          - 'AUTOPOPULATECOLNAMES'
           - 'xxxxxxxxxxxx'
         trailers_in_order:
           - 'RECORDCOUNT=¶step1→PROCESSEDROWCNT•int•08d¶'
-          - 'LINECOUNT=¶step1→output_file→EXPECTEDLINECOUNT•int•08d¶'
+          - 'LINECOUNT=¶step1→file→EXPECTEDFILELINECOUNT•int•08d¶'
   - step2:
       type: table_bcp_extractor
-      table_name: 'Heavydev.dbo.product'
-      step_database: remote
-      validate: True
-      output_file:
+      table:
+        name: 'Heavydev.dbo.product'
+        database: remote
+      file:
+        validate: True
+        type: delimitedfile
+        header_delimiter: ","
+        header_quote_char: '"'  #optional default is empty
         delimiter: "|" #optional default is ','
         quote_char : '🤩'  #optional default is empty
-        escape_char: '\'  #optional default is \, not used in bcp as of now, for future usey 
+        escape_char: '\'  #optional default is \, not used in bcp as of now, used for pandas
         path: "/home/deck/outbound"
         prefix: "FirstTestSample2_¶BDATE•date•YYYYMMDD¶"
         ext: ".csv"
         headers_in_order:
-          - "FILENAME=¶step2→output_file→FILENAME•str• <66¶ BATCH_DATE=¶BDATE•date•YYYY-MM-DD¶  CREATED_AT=¶CTIME•date•YYYY-MM-DDHH:mm:ss¶"
-          - 'AUTOPOPULATE'
+          - "FILENAME=¶step2→file→FILENAME•str• <66¶ BATCH_DATE=¶BDATE•date•YYYY-MM-DD¶  CREATED_AT=¶CTIME•date•YYYY-MM-DDHH:mm:ss¶"
+          - 'AUTOPOPULATECOLNAMES'
           - 'yyyyyyyyyyyy'
         trailers_in_order:
           - 'RECORDCOUNT=¶step2→PROCESSEDROWCNT•int•08d¶'
-          - 'LINECOUNT=¶step2→output_file→EXPECTEDLINECOUNT•int•08d¶'
+          - 'LINECOUNT=¶step2→file→EXPECTEDFILELINECOUNT•int•08d¶'
   - step3:
       type: sql_panda_extractor
-      sql_file_name: 'first_job_sql_query.sql'
-      step_database: remote
-      validate: True
-      output_file:
+      sqlfile:
+        name: 'first_job_sql_query.sql'
+        database: remote
+      file:
+        validate: True
+        type: delimitedfile
         delimiter: "|" #optional default is ','
         quote_char : '🤣'  #optional default is empty
-        escape_char: '\'  #optional default is \, not used in bcp as of now, for future usey 
+        escape_char: '\'  #optional default is \, not used in bcp as of now, used for pandas
         path: "/home/deck/outbound"
         prefix: "FirstTestSample3_¶BDATE•date•YYYYMMDD¶"
         ext: ".csv"
         headers_in_order:
-          - "FILENAME=¶step3→output_file→FILENAME•str• <66¶ BATCH_DATE=¶BDATE•date•YYYY-MM-DD¶  CREATED_AT=¶CTIME•date•YYYY-MM-DDHH:mm:ss¶"
-          - 'AUTOPOPULATE'
+          - "FILENAME=¶step3→file→FILENAME•str• <66¶ BATCH_DATE=¶BDATE•date•YYYY-MM-DD¶  CREATED_AT=¶CTIME•date•YYYY-MM-DDHH:mm:ss¶"
+          - 'AUTOPOPULATECOLNAMES'
           - 'xxxxxxxxxxxx'
         trailers_in_order:
           - 'RECORDCOUNT=¶step3→PROCESSEDROWCNT•int•08d¶'
-          - 'LINECOUNT=¶step3→output_file→EXPECTEDLINECOUNT•int•08d¶'
+          - 'LINECOUNT=¶step3→file→EXPECTEDFILELINECOUNT•int•08d¶'

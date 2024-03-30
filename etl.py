@@ -7,6 +7,7 @@ import asyncio
 from benedict import benedict
 from hydra import compose, initialize_config_dir
 from icecream import ic
+import yaml
 from lib.etl_constants import TABLE_BCP_EXTRACTOR
 from lib.etl_util import decrpyt_password, process_job_steps, process_template, read_batch_date_file, repl
 from pathlib import Path
@@ -28,6 +29,22 @@ class OverrideParams:
         if module_name not in self.params:
             self.params[module_name] = {}
         self.params[module_name][variable_name] = value
+
+
+
+def create_step_dicts(data):
+    index_to_step = {}
+    step_to_value = {}
+    for i, step in enumerate(data['job_steps']):
+        step_name = list(step.keys())[0]
+        index_to_step[i] = step_name
+        step_to_value[step_name] = step[step_name]
+    return index_to_step, step_to_value
+
+
+
+
+
 
 @click.command()
 @click.option('--env', default='dev', help='Environment to run the job in')
@@ -112,8 +129,11 @@ async def main(env, job_id, override):
     # #ic(cfg.remote.env)
     # #ic(cfg.remote.vendor.connection_string)
     # #ic(BDATE)
- 
+
+    #context_dict.job_index_dict,context_dict.job_steps_dict = create_step_dicts(context_dict.job_cfg)
     context_dict.job_index_dict,context_dict.job_steps_dict = process_job_steps(context_dict.job_cfg.job_steps)
+
+    
     #context_dict.job_index_dict = job_index_dict
     for step in context_dict.job_steps_dict.values():
         step.env = env
@@ -142,7 +162,7 @@ async def main(env, job_id, override):
         module = importlib.import_module(f"lib.etl_service")
         function_name = step_info['type']
         caller_function = getattr(module, function_name)
-        caller_function(context_dict.job_index_dict[job_step_index])
+        await caller_function(context_dict.job_index_dict[job_step_index])
         end_time = time.perf_counter()
         elapsed_time = end_time - start_time
         logger.info(f"Step {job_step_index} completed in {elapsed_time} seconds")
@@ -164,3 +184,4 @@ if __name__ == "__main__":
 #todo :- last char in file
 #fixe lenght inside bcp
 # get table info using template
+# transform file
