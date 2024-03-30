@@ -82,15 +82,15 @@ job_steps:
       step_database: remote
       validate: True
       output_file:
-        delimiter: "|"
-        quote_char : '🤩🤣'
-        escape_char: '\'
+        delimiter: "|" #optional default is ','
+        quote_char : '🤩🤣'  #optional default is empty
+        escape_char: '\'  #optional default is \, not used in bcp as of now, for future usey 
         path: "/home/deck/outbound"
         prefix: "FirstTestSample_¶BDATE•date•YYYYMMDD¶"
         ext: ".csv"
         headers_in_order:
           - "FILENAME=¶step5→output_file→FILENAME•str• <66¶ BATCH_DATE=¶BDATE•date•YYYY-MM-DD¶  CREATED_AT=¶CTIME•date•YYYY-MM-DDHH:mm:ss¶"
-          - 'id,name,description,price'
+          - 'AUTOPOPULATE'
           - 'xxxxxxxxxxxx'
         trailers_in_order:
           - 'RECORDCOUNT=¶step5→BCPPROCROWCNT•int•08d¶'

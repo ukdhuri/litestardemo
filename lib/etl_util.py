@@ -1,5 +1,6 @@
 
 
+import pathlib
 import platform
 import re
 import subprocess
@@ -133,6 +134,7 @@ def string_to_list(string: str,sep=',') -> list[str]:
         return [string]
     return string.split(sep)
 
+
 @logger.catch(reraise=True)
 def clean_meta_records(metasyntax,text):
     if metasyntax != 'ALL':
@@ -240,3 +242,30 @@ def check_mandatory_proeperties(dictionary, items):
         if item not in dictionary:
             logger.error(f"Property '{item}' not found in the configuration")
             raise Exception(f"Property '{item}' not found in the configuration")
+        
+
+def read_file(file_path):
+    """
+    Read the content of a file and return it as a string.
+
+    Args:
+        file_path (str): The path to the file.
+
+    Returns:
+        str: The content of the file as a string.
+    """
+    with open(file_path, "r") as file:
+        content = file.read()
+    return content
+
+def read_sql_file(file_path):
+    """
+    Read the content of a SQL file and return it as a string.
+
+    Args:
+        file_path (str): The path to the SQL file.
+
+    Returns:
+        str: The content of the SQL file as a string.
+    """
+    return read_file(file_path = str(pathlib.Path(file_path)))

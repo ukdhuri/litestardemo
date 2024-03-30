@@ -1,5 +1,5 @@
-driverprotocol: "mssql+aioodbc"
-#driverprotocol: "mssql+pyodbc"
+#driverprotocol: "mssql+aioodbc"
+driverprotocol: "mssql+pyodbc"
 min_pool_size: 20
 max_pool_size: 50
 driverversion: 18

@@ -1,0 +1,1 @@
+select o.id as orderid, o.batch_id,u.name, u.email as EmAiL from [dbo].[order] o ,[dbo].[user] u where o.user_id = u.id

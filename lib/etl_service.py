@@ -1,10 +1,13 @@
+import csv
 import glob
 import shutil
+from typing import Union
+from benedict import benedict
 from loguru import logger
 import pandas as pd
 import sqlite3
 from pyparsing import Optional
-from sqlalchemy import MetaData, Table, create_engine
+from sqlalchemy import Connection, Engine, MetaData, Table, create_engine
 from sqlalchemy.orm import sessionmaker
 import pyodbc
 import jaydebeapi
@@ -17,11 +20,12 @@ from icecream import ic
 
 from lib.etl_constants import *
 
-from .etl_util import check_mandatory_proeperties, decrpyt_password, get_number_of_lines, process_template, run_subprocess_command
+from .etl_util import check_mandatory_proeperties, decrpyt_password, get_number_of_lines, list_to_string, process_template, read_yaml_file, run_subprocess_command, read_sql_file
 from .etl_context import context_dict
 import subprocess
 from pathlib import Path
 import os
+from jinja2 import Environment, FileSystemLoader
 
 def getconn(connection_string):
     driverpath='*.jar'
@@ -38,6 +42,20 @@ def get_query_data_pd(connection_string,sql_query) -> pd.DataFrame:
         df = pd.read_sql_query(sql_query,getconn(connection_string))
     return df
 
+def get_query_data_pd_bydbid(dbidwithenv,sql_query) -> pd.DataFrame:
+    connection_string = context_dict.app_cfg[f'{dbidwithenv}'].vendor.connection_string
+    if not connection_string.startswith('jdbc'):
+        df = pd.read_sql_query(sql_query,sessionmaker(bind=create_engine(connection_string))().get_bind())
+    else:
+        df = pd.read_sql_query(sql_query,getconn(connection_string))
+    return df
+
+def get_panda_con(dbidwithenv) -> Union[Engine, Connection]:
+    connection_string = context_dict.app_cfg[f'{dbidwithenv}'].vendor.connection_string
+    if not connection_string.startswith('jdbc'):
+        return sessionmaker(bind=create_engine(connection_string))().get_bind()
+    else:
+        return getconn(connection_string)
 
 async def execute_query(connection_string, sql_query):
     if not connection_string.startswith('jdbc'):
@@ -67,10 +85,20 @@ def process_connecton_string(dbid,env):
     if "REPLACEME" in connection_string or '{dbid}_{env}_dbpassword' not in context_dict:
         decryptedpassword=decrpyt_password(context_dict.app_cfg[f'{dbid}_{env}'].password_command)
         context_dict[f'{dbid}_{env}_dbpassword'] = decryptedpassword
-        #ic(context_dict.app_cfg[f'{dbid}_{env}_dbpassword'])
+        ##ic(context_dict.app_cfg[f'{dbid}_{env}_dbpassword'])
     context_dict.app_cfg[f'{dbid}_{env}'].vendor.connection_string = connection_string.replace("REPLACEME", decryptedpassword)
 
 
+def set_local_dbvarialbes(jobstepid):
+    step_info = context_dict.job_steps_dict[jobstepid]
+    step_info.local_context_dict = benedict()
+    step_info.local_context_dict.dbserver = context_dict.app_cfg[f'{step_info.step_database}_{step_info.env}'].dbserver
+    step_info.local_context_dict.dbinstance = context_dict.app_cfg[f'{step_info.step_database}_{step_info.env}'].dbinstance
+    step_info.local_context_dict.dbport = context_dict.app_cfg[f'{step_info.step_database}_{step_info.env}'].dbport
+    step_info.local_context_dict.dbuser = context_dict.app_cfg[f'{step_info.step_database}_{step_info.env}'].dbuser
+    step_info.local_context_dict.dbpassword = context_dict[f'{step_info.step_database}_{step_info.env}_dbpassword']
+    step_info.local_context_dict.dialect = context_dict.app_cfg[f'{step_info.step_database}_{step_info.env}'].vendor.dialect
+    step_info.local_context_dict.basedatabase = context_dict.app_cfg[f'{step_info.step_database}_{step_info.env}'].basedatabase
 
 
 #def run_bcp(dbid, env, tablename, filename, bcp_direction, first_row=None, delimiter='\",\"', last_row=None, format_file=None, jobstepid='xxxx'):
@@ -78,8 +106,8 @@ def run_bcp( jobstepid=None):
     
 
     step_info = context_dict.job_steps_dict[jobstepid]
-    table_name = step_info.table_name
     if 'output_file' in step_info:
+        
         bcp_direction = 'out'
         file_step_info = step_info.output_file
     else:
@@ -101,8 +129,6 @@ def run_bcp( jobstepid=None):
         delimiter = ','
     if 'quote_char' in file_step_info:
         quote_char = file_step_info.quote_char
-    else:
-        quote_char = '"'
     if 'escape_char' in file_step_info:
         escape_char = file_step_info.escape_char
     else:
@@ -116,23 +142,37 @@ def run_bcp( jobstepid=None):
     if 'format_file' in file_step_info:
         format_file = file_step_info.format_file
 
+    set_local_dbvarialbes(jobstepid)
+
+
+    defaullt_database = ""
+    bcp_source = ""
+    
+
+    if step_info.type == SQL_BCP_EXTRACTOR:
+        bcp_sql_query = read_sql_file(f'sql/{step_info.sql_file_name}')
+        bcp_source = bcp_sql_query
+        bcp_direction = 'queryout'
+        defaullt_database  = f" -d '{step_info.local_context_dict.basedatabase}'"
+
+    else:
+        bcp_source = step_info.table_name
+        if step_info.table_name.count('.') != 2:
+            print("Table name contains two occurrences of dot character")
+            defaullt_database  = f" -d '{step_info.local_context_dict.basedatabase}'"
+            
+
+
+
     # Build the BCP command
 
     bcperrorlogfilename = touch_bcp_errorlog_file(f'{context_dict.job_id}_{jobstepid}')
-    ic(bcperrorlogfilename)
+    #ic(bcperrorlogfilename)
 
-    dbserver = context_dict.app_cfg[f'{step_info.step_database}_{step_info.env}'].dbserver
-    dbinstance = context_dict.app_cfg[f'{step_info.step_database}_{step_info.env}'].dbinstance
-    dbport = context_dict.app_cfg[f'{step_info.step_database}_{step_info.env}'].dbport
-    dbuser = context_dict.app_cfg[f'{step_info.step_database}_{step_info.env}'].dbuser
-    dbpassword = context_dict[f'{step_info.step_database}_{step_info.env}_dbpassword']
+
     #serverhostandport = f'{dbserver},{dbport}'
     instsep = '\\'
-    defaullt_database = ""
-    if table_name.count('.') != 2:
-        print("Table name contains two occurrences of dot character")
-        basedatabase = context_dict.app_cfg[f'{step_info.step_database}_{step_info.env}'].basedatabase
-        defaullt_database  = f" -d '{basedatabase}'"
+
     
 
 
@@ -161,11 +201,15 @@ def run_bcp( jobstepid=None):
         format_file_command = ''
         
 
-    bcp_command = f"bcp '{table_name}' out {filename} -S '{dbserver}\{dbinstance}'  -U {dbuser} -P '{dbpassword}' {defaullt_database} {first_row_command} {last_row_command} {format_file_command} {delimiter_command} -b 20000 -c -u -e {bcperrorlogfilename}"
-    bcp_command_in_log = f"bcp '{table_name}' out {filename} -S '{dbserver}\{dbinstance}' -U {dbuser} -P 'PassWordHidden'  {defaullt_database} {first_row_command} {last_row_command} {format_file_command} {delimiter_command} -b 20000 -c -u -e {bcperrorlogfilename}"
-    #bcp_command = f"bcp '{table_name}' out {filename} -S '{dbserver},{dbport}' -U {dbuser} -P '{dbpassword}' -b 20000 -c -u"
+    bcp_command = f"bcp '{bcp_source}' {bcp_direction} {filename} -S '{step_info.local_context_dict.dbserver}\{step_info.local_context_dict.dbinstance}'  -U {step_info.local_context_dict.dbuser} -P '{step_info.local_context_dict.dbpassword}' {defaullt_database} {first_row_command} {last_row_command} {format_file_command} {delimiter_command} -b 20000 -c -u -e {bcperrorlogfilename}"
+    bcp_command_in_log = f"bcp '{bcp_source}' {bcp_direction} {filename} -S '{step_info.local_context_dict.dbserver}\{step_info.local_context_dict.dbinstance}' -U {step_info.local_context_dict.dbuser} -P 'PassWordHidden'  {defaullt_database} {first_row_command} {last_row_command} {format_file_command} {delimiter_command} -b 20000 -c -u -e {bcperrorlogfilename}"
 
-    ic(bcp_command)
+
+
+
+#bcp_command = f"bcp '{table_name}' out {filename} -S '{dbserver},{dbport}' -U {dbuser} -P '{dbpassword}' -b 20000 -c -u"
+
+    #ic(bcp_command)
     output_str = run_subprocess_command(bcp_command,check_error=False,check_status=False,show_command=bcp_command_in_log)
 
     if "ERROR" in output_str.upper():
@@ -182,15 +226,15 @@ def run_bcp( jobstepid=None):
     if os.path.exists(bcperrorlogfilename):
         os.remove(bcperrorlogfilename)
 
-    ic('examin outputstr')
-    ic(output_str.splitlines()[-3:])
+    #ic('examin outputstr')
+    #ic(output_str.splitlines()[-3:])
 
     if output_str and len(output_str.splitlines()) > 3:
         logger.info('Trying to get BCP info')
         if 'rows copied' in output_str.splitlines()[-3]:
             bcp_output_count = int(output_str.splitlines()[-3].split()[0])
             logger.info(f"BCP Row Count is {bcp_output_count}")
-            context_dict.job_steps_dict[jobstepid].BCPPROCROWCNT = bcp_output_count
+            context_dict.job_steps_dict[jobstepid].PROCESSEDROWCNT = bcp_output_count
 
         if 'packet size' in output_str.splitlines()[-2]:
             packet_size = int(output_str.splitlines()[-2].split(':')[1].strip())
@@ -227,47 +271,132 @@ def touch_bcp_errorlog_file(job_and_step):
     return filename
 
 
-
-
+@logger.catch(reraise=True)
+def sql_bcp_extractor(jobstepid):
+    step_info = context_dict.job_steps_dict[jobstepid]
+    check_mandatory_proeperties(step_info,MANDATORY_SQL_BCP_EXTRACTOR_PROPERTIES)
+    bcp_extractor_runner(jobstepid)
+    
 
 
 @logger.catch(reraise=True)
-def table_bcp_extractor_runner(jobstepid):
+def table_bcp_extractor(jobstepid):
     step_info = context_dict.job_steps_dict[jobstepid]
     check_mandatory_proeperties(step_info,MANDATORY_TABLE_BCP_EXTRACTOR_PROPERTIES)
-    table_name = step_info.table_name
+    bcp_extractor_runner(jobstepid)
+    
+
+@logger.catch(reraise=True)
+def bcp_extractor_runner(jobstepid):
+    step_info = context_dict.job_steps_dict[jobstepid]
     step_database = step_info.step_database
     process_connecton_string(step_database,step_info.env)
     generate_complete_filename(step_info.output_file)
     if 'headers_in_order' in step_info.output_file:
         step_info.output_file.headers_in_order = list(map(process_template,step_info.output_file.headers_in_order))
-        ic(step_info.output_file.headers_in_order)
+        #ic(step_info.output_file.headers_in_order)
+        
+
+
+    for i in range(len(step_info.output_file.headers_in_order)):
+        if 'AUTOPOPULATE' in step_info.output_file.headers_in_order[i]:
+            local_context_dict = benedict()
+            if step_info.type == SQL_BCP_EXTRACTOR:
+                local_context_dict.base_select_query = read_sql_file(f'sql/{step_info.sql_file_name}')
+            else:
+                local_context_dict.base_select_query = f'select * from {step_info.table_name}'
+            renderedstring = render_sql_template('cte_for_column_names.sql',local_context_dict)
+            column_names_pd = get_query_data_pd_bydbid(f'{step_info.step_database}_{step_info.env}',renderedstring)
+            #ic(column_names_pd.columns)
+            sep=','
+            if 'delimiter' in step_info.output_file:
+                sep = step_info.output_file.delimiter
+            step_info.output_file.headers_in_order[i] = step_info.output_file.headers_in_order[i].replace('AUTOPOPULATE', list_to_string(column_names_pd.columns.tolist(),sep=sep))
+            #step_info.output_file.headers_in_order = list_to_string(column_names_pd.columns.tolist(),sep=sep)
+
+
     if 'ext' not in step_info.output_file:
         step_info.output_file.ext = ''
+
+        
     run_bcp(jobstepid=jobstepid)
     process_file_counts(step_info.output_file)
     if 'trailers_in_order' in step_info.output_file:
         step_info.output_file.trailers_in_order = list(map(process_template,step_info.output_file.trailers_in_order))
-        ic(step_info.output_file.headers_in_order)
+        #ic(step_info.output_file.headers_in_order)
     if not os.path.exists(step_info.output_file.FULLFILENAME):
         logger.error(f"BCP process failed, File {step_info.output_file.FULLFILENAME} does not exist")
         raise FileNotFoundError(f"BCP process failed, File {step_info.output_file.FULLFILENAME} does not exist")
     add_header_trailer(step_info.output_file.FULLFILENAME, step_info.output_file.headers_in_order, step_info.output_file.trailers_in_order)
-    if 'validation' in step_info and step_info.validation and step_info.validation == 'Y':
+    if 'validate' in step_info and step_info.validate and step_info.validate == True:
         step_info.output_file.FILELINECOUNT = get_number_of_lines(step_info.output_file.FULLFILENAME)
         if step_info.output_file.FILELINECOUNT != step_info.output_file.EXPECTEDLINECOUNT:
             logger.error(f"Validation failed fpr EXPECTEDLINECOUNT vs FILELINECOUNT, Expected {step_info.output_file.EXPECTEDLINECOUNT=} but got {step_info.output_file.FILELINECOUNT=}")
             raise ValueError(f"Validation failed for EXPECTEDLINECOUNT vs FILELINECOUNT, Expected {step_info.output_file.EXPECTEDLINECOUNT=} but got {step_info.output_file.FILELINECOUNT=}")
         else:
             logger.info(f"Validation passed for EXPECTEDLINECOUNT vs FILELINECOUNT, Expected {step_info.output_file.EXPECTEDLINECOUNT=} and got {step_info.output_file.FILELINECOUNT=}")
-        if step_info.BCPPROCROWCNT != step_info.output_file.DATALINECOUNT:
-            logger.error(f"Validation failed for BCPPROCROWCNT vs DATALINECOUNT, Expected {step_info.BCPPROCROWCNT=} but got {step_info.output_file.DATALINECOUNT=}")
-            raise ValueError(f"Validation failed, BCPPROCROWCNT vs DATALINECOUNT, Expected {step_info.BCPPROCROWCNT=} but got {step_info.output_file.DATALINECOUNT=}")
+        if step_info.PROCESSEDROWCNT != step_info.output_file.DATALINECOUNT:
+            logger.error(f"Validation failed for PROCESSEDROWCNT vs DATALINECOUNT, Expected {step_info.PROCESSEDROWCNT=} but got {step_info.output_file.DATALINECOUNT=}")
+            raise ValueError(f"Validation failed, PROCESSEDROWCNT vs DATALINECOUNT, Expected {step_info.PROCESSEDROWCNT=} but got {step_info.output_file.DATALINECOUNT=}")
         else:
-            logger.info(f"Validation passed BCPPROCROWCNT vs DATALINECOUNT, Expected {step_info.BCPPROCROWCNT=} and got {step_info.output_file.DATALINECOUNT=}")
+            logger.info(f"Validation passed PROCESSEDROWCNT vs DATALINECOUNT, Expected {step_info.PROCESSEDROWCNT=} and got {step_info.output_file.DATALINECOUNT=}")
+
+
+
+
+@logger.catch(reraise=True)
+def sql_panda_extractor(jobstepid):
+    step_info = context_dict.job_steps_dict[jobstepid]
+    step_database = step_info.step_database
+    process_connecton_string(step_database,step_info.env)
+    generate_complete_filename(step_info.output_file)
+    if 'headers_in_order' in step_info.output_file:
+        step_info.output_file.headers_in_order = list(map(process_template,step_info.output_file.headers_in_order))
+        #ic(step_info.output_file.headers_in_order)
         
-   
-    
+
+
+    for i in range(len(step_info.output_file.headers_in_order)):
+        if 'AUTOPOPULATE' in step_info.output_file.headers_in_order[i]:
+            local_context_dict = benedict()
+            local_context_dict.base_select_query = read_sql_file(f'sql/{step_info.sql_file_name}')
+            renderedstring = render_sql_template('cte_for_column_names.sql',local_context_dict)
+            column_names_pd = get_query_data_pd_bydbid(f'{step_info.step_database}_{step_info.env}',renderedstring)
+            #ic(column_names_pd.columns)
+            sep=','
+            if 'delimiter' in step_info.output_file:
+                sep = step_info.output_file.delimiter
+            step_info.output_file.headers_in_order[i] = step_info.output_file.headers_in_order[i].replace('AUTOPOPULATE', list_to_string(column_names_pd.columns.tolist(),sep=sep))
+            #step_info.output_file.headers_in_order = list_to_string(column_names_pd.columns.tolist(),sep=sep)
+
+
+    if 'ext' not in step_info.output_file:
+        step_info.output_file.ext = ''
+    panda_file_processor(jobstepid=jobstepid)
+    process_file_counts(step_info.output_file)
+    if 'trailers_in_order' in step_info.output_file:
+        step_info.output_file.trailers_in_order = list(map(process_template,step_info.output_file.trailers_in_order))
+        #ic(step_info.output_file.headers_in_order)
+    if not os.path.exists(step_info.output_file.FULLFILENAME):
+        logger.error(f"BCP process failed, File {step_info.output_file.FULLFILENAME} does not exist")
+        raise FileNotFoundError(f"BCP process failed, File {step_info.output_file.FULLFILENAME} does not exist")
+    add_header_trailer(step_info.output_file.FULLFILENAME, step_info.output_file.headers_in_order, step_info.output_file.trailers_in_order)
+    if 'validate' in step_info and step_info.validate and step_info.validate == True:
+        step_info.output_file.FILELINECOUNT = get_number_of_lines(step_info.output_file.FULLFILENAME)
+        if step_info.output_file.FILELINECOUNT != step_info.output_file.EXPECTEDLINECOUNT:
+            logger.error(f"Validation failed fpr EXPECTEDLINECOUNT vs FILELINECOUNT, Expected {step_info.output_file.EXPECTEDLINECOUNT=} but got {step_info.output_file.FILELINECOUNT=}")
+            raise ValueError(f"Validation failed for EXPECTEDLINECOUNT vs FILELINECOUNT, Expected {step_info.output_file.EXPECTEDLINECOUNT=} but got {step_info.output_file.FILELINECOUNT=}")
+        else:
+            logger.info(f"Validation passed for EXPECTEDLINECOUNT vs FILELINECOUNT, Expected {step_info.output_file.EXPECTEDLINECOUNT=} and got {step_info.output_file.FILELINECOUNT=}")
+        if step_info.PROCESSEDROWCNT != step_info.output_file.DATALINECOUNT:
+            logger.error(f"Validation failed for PROCESSEDROWCNT vs DATALINECOUNT, Expected {step_info.PROCESSEDROWCNT=} but got {step_info.output_file.DATALINECOUNT=}")
+            raise ValueError(f"Validation failed, PROCESSEDROWCNT vs DATALINECOUNT, Expected {step_info.PROCESSEDROWCNT=} but got {step_info.output_file.DATALINECOUNT=}")
+        else:
+            logger.info(f"Validation passed PROCESSEDROWCNT vs DATALINECOUNT, Expected {step_info.PROCESSEDROWCNT=} and got {step_info.output_file.DATALINECOUNT=}")
+
+
+
+
 
 
 
@@ -337,4 +466,66 @@ def process_file_counts(file_info):
     return file_info
 
 
-#todo add validation flags
+
+
+def render_sql_template(template_name, context_dict):
+    # Create the Jinja2 environment
+    env = Environment(loader=FileSystemLoader('sql'))
+    
+    # Load the template
+    template = env.get_template(template_name)
+    
+    # Render the template with the context dictionary
+    rendered_sql = template.render(context_dict)
+    
+    return rendered_sql
+
+#def run_bcp(dbid, env, tablename, filename, bcp_direction, first_row=None, delimiter='\",\"', last_row=None, format_file=None, jobstepid='xxxx'):
+def panda_file_processor(jobstepid=None):
+    step_info = context_dict.job_steps_dict[jobstepid]
+    if 'output_file' in step_info:   
+        panda_direction = 'out'
+        file_step_info = step_info.output_file
+    else:
+        panda_direction = 'in'
+        file_step_info = step_info.input_file
+    filename = file_step_info.FULLFILENAME
+
+
+    first_row = None
+    last_row = None
+    delimiter = None
+    quote_char = None
+    escape_char = None
+    format_file = None
+
+    if 'delimiter' in file_step_info:
+        delimiter = file_step_info.delimiter
+    else:
+        delimiter = ','
+    quoting = None
+    if 'quote_char' in file_step_info:
+        quote_char = file_step_info.quote_char
+        quoting = csv.QUOTE_ALL
+    # else:
+    #     quote_char = ''
+    if 'escape_char' in file_step_info:
+        escape_char = file_step_info.escape_char
+    else:
+        escape_char = '\\'
+
+    if 'first_row' in file_step_info:
+        first_row = file_step_info.first_row
+    if 'last_row' in file_step_info:
+        last_row = file_step_info.last_row
+
+    set_local_dbvarialbes(jobstepid)
+    pand_select_query = read_sql_file(f'sql/{step_info.sql_file_name}')
+    pandacon = get_panda_con(f'{step_info.step_database}_{step_info.env}')
+
+    df = pd.read_sql_query(pand_select_query, pandacon)
+    context_dict.job_steps_dict[jobstepid].PROCESSEDROWCNT = len(df)
+    df.to_csv(filename, index=False, sep=delimiter,quoting=quoting, quotechar=quote_char, escapechar=escape_char, header=False)
+
+    
+    

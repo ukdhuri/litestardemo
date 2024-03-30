@@ -1,0 +1,96 @@
+---
+# Sample YAML configuration
+
+#any new varialbe will be added in this sample yaml
+# Following varialbes are available to use directely without defining in file
+# BDATE = this is business date, follows business schedule of working days
+# CDATE = this is current datetime, follows system date. Thsi contains time, you can format it as per your requirement
+# CTIME = same as abolve
+# FILELINECNT = this is file line count, number of lines in data file
+# PROCESSEDROWCNT = this is total number of record processed by bcp 
+# ENV = this is environment, follows environment Value, comes from command line parameter
+
+# OUPUTFILELINES = this is output file line count, number of lines in output file (this is of the file including header and trailer)
+# INPUTFILELINES = this is input file line count, number of lines in input file (including header and trailer)
+# INPUTFILEDATALINECOUNT = number of line in inputfile excluding header and trailer
+# OUTPUTFILERDATALINECOUNT = number of line in output file excluding header and trailer, this number can differ from actual records in file if some data contains new line character
+# INPUTDATAFRAMELENGHT = this is input data frame lenght, number of rows in input data frame
+# OUTPUTDATAFRAMELENGHT = this is output data frame lenght, number of rows in output data frame
+
+# FILELINECOUNT =  this is  file line count, number of lines in file
+# DATALINECOUNT = = number of line in output file excluding header and trailer, this number can differ from actual records in file if some data contains new line character
+# FILENAME = Inside input or output file configuration, this will be replaced by current file name after processing placeholder but without base path
+# FULLFILENAME = Inside input or output file configuration, this will be replaced by current file name after processing placeholder with base path
+# FILENAMEWE = Inside input or output file configuration, this will be replaced by current file name after processing placeholder but without base path and extension
+# EXPECTEDLINECOUNT = this is expected final count, sum of datalinecount and all the headers and trailers
+# Define job name
+name: first_job
+group_seperator: "¶"
+component_seperator: "•"
+ingnorable_character: '🧹'
+child_access_symbol: '→'
+
+common_variables:
+  test_varialbe: "test_value"
+  test_varialbe1: "test_value2"
+
+
+# Define job steps
+job_steps:
+  - step1:
+      type: sql_bcp_extractor
+      sql_file_name: 'first_job_sql_query.sql'
+      step_database: remote
+      validate: False
+      output_file:
+        delimiter: "," #optional default is ','
+        quote_char : '🤣'  #optional default is empty
+        escape_char: '\'  #optional default is \, not used in bcp as of now, for future usey 
+        path: "/home/deck/outbound"
+        prefix: "FirstTestSample_¶BDATE•date•YYYYMMDD¶"
+        ext: ".csv"
+        headers_in_order:
+          - "FILENAME=¶step1→output_file→FILENAME•str• <66¶ BATCH_DATE=¶BDATE•date•YYYY-MM-DD¶  CREATED_AT=¶CTIME•date•YYYY-MM-DDHH:mm:ss¶"
+          - 'AUTOPOPULATE'
+          - 'xxxxxxxxxxxx'
+        trailers_in_order:
+          - 'RECORDCOUNT=¶step1→PROCESSEDROWCNT•int•08d¶'
+          - 'LINECOUNT=¶step1→output_file→EXPECTEDLINECOUNT•int•08d¶'
+  - step2:
+      type: table_bcp_extractor
+      table_name: 'Heavydev.dbo.product'
+      step_database: remote
+      validate: True
+      output_file:
+        delimiter: "|" #optional default is ','
+        quote_char : '🤩'  #optional default is empty
+        escape_char: '\'  #optional default is \, not used in bcp as of now, for future usey 
+        path: "/home/deck/outbound"
+        prefix: "FirstTestSample2_¶BDATE•date•YYYYMMDD¶"
+        ext: ".csv"
+        headers_in_order:
+          - "FILENAME=¶step2→output_file→FILENAME•str• <66¶ BATCH_DATE=¶BDATE•date•YYYY-MM-DD¶  CREATED_AT=¶CTIME•date•YYYY-MM-DDHH:mm:ss¶"
+          - 'AUTOPOPULATE'
+          - 'yyyyyyyyyyyy'
+        trailers_in_order:
+          - 'RECORDCOUNT=¶step2→PROCESSEDROWCNT•int•08d¶'
+          - 'LINECOUNT=¶step2→output_file→EXPECTEDLINECOUNT•int•08d¶'
+  - step3:
+      type: sql_panda_extractor
+      sql_file_name: 'first_job_sql_query.sql'
+      step_database: remote
+      validate: True
+      output_file:
+        delimiter: "|" #optional default is ','
+        quote_char : '🤣'  #optional default is empty
+        escape_char: '\'  #optional default is \, not used in bcp as of now, for future usey 
+        path: "/home/deck/outbound"
+        prefix: "FirstTestSample3_¶BDATE•date•YYYYMMDD¶"
+        ext: ".csv"
+        headers_in_order:
+          - "FILENAME=¶step3→output_file→FILENAME•str• <66¶ BATCH_DATE=¶BDATE•date•YYYY-MM-DD¶  CREATED_AT=¶CTIME•date•YYYY-MM-DDHH:mm:ss¶"
+          - 'AUTOPOPULATE'
+          - 'xxxxxxxxxxxx'
+        trailers_in_order:
+          - 'RECORDCOUNT=¶step3→PROCESSEDROWCNT•int•08d¶'
+          - 'LINECOUNT=¶step3→output_file→EXPECTEDLINECOUNT•int•08d¶'
