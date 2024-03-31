@@ -18,10 +18,8 @@ import subprocess
 import os
 import sqlalchemy.pool as pool
 from icecream import ic
-
 from lib.etl_constants import *
-
-from .etl_util import check_and_delete_file, check_mandatory_proeperties, decrpyt_password, get_last_n_lines, get_n_lines_from_top, get_number_of_lines, list_to_string, process_template, read_yaml_file, run_subprocess_command, read_sql_file, string_to_list
+from .etl_util import check_and_delete_file, check_mandatory_proeperties, decrpyt_password, format_row, get_last_n_lines, get_n_lines_from_top, get_number_of_lines, list_to_string, process_template, read_yaml_file, run_subprocess_command, read_sql_file, string_to_list
 from .etl_context import context_dict
 import subprocess
 from pathlib import Path
@@ -51,13 +49,6 @@ def get_query_data_pd_bydbid(dbidwithenv,sql_query) -> pd.DataFrame:
         df = pd.read_sql_query(sql_query,getconn(connection_string))
     return df
 
-
-def get_con_for_panda(dbidwithenv) -> pd.DataFrame:
-    connection_string = context_dict.app_cfg[f'{dbidwithenv}'].vendor.connection_string
-    if not connection_string.startswith('jdbc'):
-        return sessionmaker(bind=create_engine(connection_string))().get_bind()
-    else:
-        return getconn(connection_string)
 
 
 def get_panda_con(dbidwithenv) -> Union[Engine, Connection]:
@@ -163,6 +154,8 @@ def set_local_dbvarialbes(dbobject,jobstepid):
     dbobject.local_context_dict.dbpassword = context_dict[f'{dbkey}_dbpassword']
     dbobject.local_context_dict.dialect = context_dict.app_cfg[f'{dbkey}'].vendor.dialect
     dbobject.local_context_dict.basedatabase = context_dict.app_cfg[f'{dbkey}'].basedatabase
+    if dbobject.local_context_dict.dialect == 'tsql':
+        dbobject.local_context_dict.dbschema = 'dbo'
 
 #def run_bcp(dbid, env, tablename, filename, bcp_direction, first_row=None, delimiter='\",\"', last_row=None, format_file=None, jobstepid='xxxx'):
 def run_bcp(jobstepid=None):
@@ -241,12 +234,14 @@ def run_bcp(jobstepid=None):
         format_file_command = ''
     bcpfile = filename
 
-
+    clean_file_used = False
     if bcp_direction == 'in':
+        clean_file_used = False
         if quote_char is not None:
             check_and_delete_file(f"{filename}.cleaned")
             logger.info("Cleaning Source File to remove quotes and replace delimter with stard unit seperator")
             logger.info(f"replacing delimiter {delimiter} with ␟")
+            delimer_to_be_replaced = delimiter
             if is_special_character(delimiter):
                 if len(delimiter) < 2:
                     delimer_to_be_replaced = '\\' + delimiter
@@ -270,18 +265,35 @@ def run_bcp(jobstepid=None):
             perl_command = f"perl -pi -e 's{braket_start}(?<!{escape_char_perl}){quote_char_perl}{braket_end}{braket_start}{braket_end}g' {filename}.cleaned"
             #sed_command = f"sed -i 's/[^{escape_char}]{quote_char}//g' {filename}.cleaned"
             run_subprocess_command(perl_command)
-            remove_header_command = f"sed -i '1,{len(file_step_info.headers_in_order)}d' {filename}.cleaned"
+            clean_file_used = True
+        if 'headers_in_order' in step_info.file and step_info.file.headers_in_order: 
+            if clean_file_used:
+                remove_header_command = f"sed -i '1,{len(file_step_info.headers_in_order)}d' {filename}.cleaned"
+            else:
+                remove_header_command = f"sed '1,{len(file_step_info.headers_in_order)}d' {filename} > {filename}.cleaned"
             ic(remove_header_command)
             run_subprocess_command(remove_header_command)
-            tailer_var = file_step_info.FILELINECOUNT - len(file_step_info.trailers_in_order) + 1 - len(file_step_info.headers_in_order) 
-            remove_trailer_command = f"sed -i '{tailer_var},$d' {filename}.cleaned"
+            clean_file_used = True
+        if 'trailers_in_order' in step_info.file and step_info.file.trailers_in_order:
+            header_len  = 0
+            if 'headers_in_order' in step_info.file and step_info.file.headers_in_order:
+                header_len = len(file_step_info.headers_in_order)
+            tailer_var = file_step_info.FILELINECOUNT - len(file_step_info.trailers_in_order) + 1 - header_len
+            if clean_file_used:
+                remove_trailer_command = f"sed -i '{tailer_var},$d' {filename}.cleaned"
+            else:
+                remove_trailer_command = f"sed '{tailer_var},$d' {filename} > {filename}.cleaned"
             print(remove_trailer_command)
             run_subprocess_command(remove_trailer_command)
-            # sed_command = f"sed -i 's/^{quote_char}//' {filename}.cleaned"
-            # run_subprocess_command(sed_command)
-            bcpfile = f"{filename}.cleaned"
+            clean_file_used = True
+        # sed_command = f"sed -i 's/^{quote_char}//' {filename}.cleaned"
+        # run_subprocess_command(sed_command)
+    if clean_file_used:
+        bcpfile = f"{filename}.cleaned"
+    else:
+        bcpfile = filename
 
-    if quote_char is not None and bcp_direction == 'out':
+    if quote_char is not None and ( bcp_direction == 'out' or bcp_direction == 'queryout' ):
         delimiter = f'{quote_char}{delimiter}{quote_char}'
     delimiter_command = f"-t '{delimiter}'"  
 
@@ -291,7 +303,7 @@ def run_bcp(jobstepid=None):
 
     ic(bcp_command)
     output_str = run_subprocess_command(bcp_command,show_command=bcp_command_in_log,additional_log_files=[str(bcperrorlogfilename)])
-
+    check_and_delete_file(f"{filename}.cleaned")
     if "ERROR" in output_str.upper():
         logger.error("BCP Produced error, please check bcp log file")
 
@@ -325,7 +337,7 @@ def run_bcp(jobstepid=None):
             logger.info(f"Averarge Rows Processed per sec {avg_rows_per_second}")
 
     if os.path.exists(filename):
-        if  bcp_direction == 'out' and quote_char is not None:
+        if  ( bcp_direction == 'out' or bcp_direction == 'queryout' ) and quote_char is not None:
             sed_command = f"sed -i.bak 's/^..*$/{quote_char}&{quote_char}/' {filename}"
             run_subprocess_command(sed_command)
             if os.path.exists(f"{filename}.bak"):
@@ -349,7 +361,8 @@ async def  table_bcp_extractor(jobstepid):
     step_info = context_dict.job_steps_dict[jobstepid]
     check_mandatory_proeperties(step_info,MANDATORY_TABLE_BCP_EXTRACTOR_PROPERTIES)
     await bcp_extractor_runner(jobstepid)
-   
+
+
 @logger.catch(reraise=True)
 async def  bcp_extractor_runner(jobstepid):
     step_info = context_dict.job_steps_dict[jobstepid]
@@ -362,8 +375,8 @@ async def  bcp_extractor_runner(jobstepid):
     generate_complete_filename(step_info.file)
     initialize_for_outputfile(step_info)
     run_bcp(jobstepid=jobstepid)
-    process_rawoutputfile_counts(step_info.file)
-    process_output_file(step_info)
+    await process_rawoutputfile_counts(step_info.file)
+    await process_output_file(step_info.file,step_info.PROCESSEDROWCNT)
 
 
 @logger.catch(reraise=True)
@@ -373,12 +386,44 @@ async def table_bcp_loader(jobstepid):
     generate_complete_filename(step_info.file)
     process_connecton_string(step_info.table,jobstepid)
     set_local_dbvarialbes(step_info.table,jobstepid)
-    preprocess_input_file(step_info)
+    await preprocess_input_file(step_info.file)
+    main_table_name = step_info.table.name
+    table_to_bcp_into = main_table_name
     if step_info.load_type == 'truncate_and_load':
         truncate_command = f"truncate table {step_info.table.name}"
         await execute_query(step_info.table.local_context_dict.connection_string,truncate_command)
+    if step_info.load_type == 'merge_and_load':
+        table_to_bcp_into, local_context, column_names_list, unique_col_name_list, punique_col_name_list = await initialize_for_merge(step_info, main_table_name)
+    step_info.table.name = table_to_bcp_into 
     run_bcp(jobstepid=jobstepid)
     await post_table_load_validator(jobstepid)
+    if step_info.load_type == 'merge_and_load':
+        await merge_table_and_clean(step_info, main_table_name, table_to_bcp_into, local_context, column_names_list, unique_col_name_list, punique_col_name_list)
+
+async def initialize_for_merge(step_info, main_table_name):
+    local_context = benedict()
+    local_context = step_info.table
+    drop_query = render_sql_template('drop_mtmp_tbl.sql',local_context)
+    await execute_query(step_info.table.local_context_dict.connection_string,drop_query)
+    clone_strucure_query = render_sql_template('clone_table_structure.sql',local_context)
+    await execute_query(step_info.table.local_context_dict.connection_string,clone_strucure_query)
+    all_column_names_query = render_sql_template('get_columns.sql',local_context)
+    column_names_pd = get_query_data_pd_bydbid(f'{step_info.table.database}_{step_info.env}',all_column_names_query)
+    column_names_list = column_names_pd['column_name'].tolist()
+    ic(column_names_list)
+    unique_col_name_list = []
+    all_unique_columns_query = render_sql_template('get_primary_key.sql',local_context)
+    uniq_col_names_pd = get_query_data_pd_bydbid(f'{step_info.table.database}_{step_info.env}',all_unique_columns_query)
+    print(uniq_col_names_pd)
+    punique_col_name_list = uniq_col_names_pd['column_name'].tolist()
+    if 'key_columns'  in step_info.table:
+        unique_col_name_list = string_to_list(step_info.table.key_columns)
+    else:
+        unique_col_name_list = punique_col_name_list
+    ic(unique_col_name_list)
+    table_to_bcp_into = f"{main_table_name}_mtmp"
+    step_info.table.name = table_to_bcp_into
+    return table_to_bcp_into,local_context,column_names_list,unique_col_name_list,punique_col_name_list
 
 
 @logger.catch(reraise=True)
@@ -388,12 +433,33 @@ async def table_pandas_loader(jobstepid):
     generate_complete_filename(step_info.file)
     process_connecton_string(step_info.table,jobstepid)
     set_local_dbvarialbes(step_info.table,jobstepid)
-    preprocess_input_file(step_info)
+    await preprocess_input_file(step_info.file)
+    main_table_name = step_info.table.name
+    table_to_bcp_into = main_table_name
     if step_info.load_type == 'truncate_and_load':
         truncate_command = f"truncate table {step_info.table.name}"
         await execute_query(step_info.table.local_context_dict.connection_string,truncate_command)
+    if step_info.load_type == 'merge_and_load':
+        table_to_bcp_into, local_context, column_names_list, unique_col_name_list, punique_col_name_list = await initialize_for_merge(step_info, main_table_name)
+    step_info.table.name = table_to_bcp_into 
     await panda_file_processor(jobstepid)
     await post_table_load_validator(jobstepid)
+    if step_info.load_type == 'merge_and_load':
+        await merge_table_and_clean(step_info, main_table_name, table_to_bcp_into, local_context, column_names_list, unique_col_name_list, punique_col_name_list)
+
+async def merge_table_and_clean(step_info, main_table_name, table_to_bcp_into, local_context, column_names_list, unique_col_name_list, punique_col_name_list):
+    local_context.target_table = main_table_name
+    local_context.source_table = table_to_bcp_into
+    local_context.unique_key_columns = unique_col_name_list
+    local_context.insert_columns = column_names_list
+    local_context.update_columns = [col for col in column_names_list if col not in unique_col_name_list+punique_col_name_list]
+    merge_query = render_sql_template('merge_table.sql',local_context)
+    print(merge_query)
+    await execute_query(step_info.table.local_context_dict.connection_string,merge_query)
+    step_info.table.name = main_table_name 
+    drop_query = render_sql_template('drop_mtmp_tbl.sql',local_context)
+    ic(drop_query)
+    await execute_query(step_info.table.local_context_dict.connection_string,drop_query)
 
 
 async def post_table_load_validator(jobstepid):
@@ -415,109 +481,129 @@ async def post_table_load_validator(jobstepid):
         else:
             logger.info(f"Validation passed for table row count vs EXPECTEDDATALINECOUNT, Expected {table_row_count=} and got {step_info.file.EXPECTEDDATALINECOUNT=}")
 
-def  preprocess_input_file(step_info):
-    if not os.path.exists(step_info.file.FULLFILENAME):
-        logger.error(f"Loader process failed, File {step_info.file.FULLFILENAME} does not exist")
-        raise FileNotFoundError(f"Loader process failed, File {step_info.file.FULLFILENAME} does not exist")
-    preprocess_maininputfile_counts(step_info.file)
+async def  preprocess_input_file(file):
+    if not os.path.exists(file.FULLFILENAME):
+        logger.error(f"Loader process failed, File {file.FULLFILENAME} does not exist")
+        raise FileNotFoundError(f"Loader process failed, File {file.FULLFILENAME} does not exist")
+    await preprocess_maininputfile_counts(file)
 
-    for i in range(len(step_info.file.headers_in_order)):
-        if 'AUTOPOPULATECOLNAMES' in step_info.file.headers_in_order[i]:
-            logger.error(f"Loader process failed, AUTOPOPULATECOLNAMES not supported for loader")
     
-    if 'headers_in_order' in step_info.file:
-        step_info.file.headers_in_order = list(map(process_template,step_info.file.headers_in_order))
-        actual_header_lines = get_n_lines_from_top(step_info.file.FULLFILENAME,len(step_info.file.headers_in_order))
+    if 'headers_in_order' in file and file.headers_in_order:
+        for i in range(len(file.headers_in_order)):
+            if 'AUTOPOPULATECOLNAMES' in file.headers_in_order[i]:
+                logger.error(f"Loader process failed, AUTOPOPULATECOLNAMES not supported for loader")
+        file.headers_in_order = list(map(process_template,file.headers_in_order))
+        actual_header_lines = get_n_lines_from_top(file.FULLFILENAME,len(file.headers_in_order))
 
-    ic(step_info.file.headers_in_order)
-    if 'trailers_in_order' in step_info.file:
-        step_info.file.trailers_in_order = list(map(process_template,step_info.file.trailers_in_order))
-        actual_trailer_lines = get_last_n_lines(step_info.file.FULLFILENAME,len(step_info.file.trailers_in_order))
+    ic(file.headers_in_order)
+    if 'trailers_in_order' in file and file.trailers_in_order:
+        file.trailers_in_order = list(map(process_template,file.trailers_in_order))
+        actual_trailer_lines = get_last_n_lines(file.FULLFILENAME,len(file.trailers_in_order))
 
-    ic(step_info.file.trailers_in_order)
+    ic(file.trailers_in_order)
    
 
-    if 'validate' in step_info.file and step_info.file.validate and step_info.file.validate == True:
-        for i,header in enumerate(step_info.file.headers_in_order):
-            if header:
-                if context_dict.job_cfg.ingnorable_character in header:
-                    actual_header_lines[i] = mask_string_for_validation(header, actual_header_lines[i], char_to_mask=context_dict.job_cfg.ingnorable_character)
-                if header != actual_header_lines[i]:
-                    logger.error(f"Validation failed for header line {i+1}, Expected {header=} but got {actual_header_lines[i]=}")
-                    raise ValueError(f"Validation failed for header line {i+1}, Expected {header=} but got {actual_header_lines[i]=}")
-                else:
-                    logger.info(f"Validation passed for header line {i+1}, Expected {header=} and got {actual_header_lines[i]=}")
+    if 'validate' in file and file.validate and file.validate == True:
+        if 'headers_in_order' in file and file.headers_in_order:
+            for i,header in enumerate(file.headers_in_order):
+                if header:
+                    if context_dict.job_cfg.ingnorable_character in header:
+                        actual_header_lines[i] = mask_string_for_validation(header, actual_header_lines[i], char_to_mask=context_dict.job_cfg.ingnorable_character)
+                    if header != actual_header_lines[i]:
+                        logger.error(f"Validation failed for header line {i+1}, Expected {header=} but got {actual_header_lines[i]=}")
+                        raise ValueError(f"Validation failed for header line {i+1}, Expected {header=} but got {actual_header_lines[i]=}")
+                    else:
+                        logger.info(f"Validation passed for header line {i+1}, Expected {header=} and got {actual_header_lines[i]=}")
 
-
-        for i,trailer in enumerate(step_info.file.trailers_in_order):
-            if trailer:
-                if context_dict.job_cfg.ingnorable_character in trailer:
-                    actual_trailer_lines[i] = mask_string_for_validation(trailer, actual_trailer_lines[i], char_to_mask=context_dict.job_cfg.ingnorable_character)
-                if trailer != actual_trailer_lines[i]:
-                    logger.error(f"Validation failed for trailer line {i+1}, Expected {trailer=} but got {actual_trailer_lines[i]=}")
-                    raise ValueError(f"Validation failed for trailer line {i+1}, Expected {trailer=} but got {actual_trailer_lines[i]=}")
-                else:
-                    logger.info(f"Validation passed for trailer line {i+1}, Expected {trailer=} and got {actual_trailer_lines[i]=}")
+        if 'trailers_in_order' in file and file.trailers_in_order:
+            for i,trailer in enumerate(file.trailers_in_order):
+                if trailer:
+                    if context_dict.job_cfg.ingnorable_character in trailer:
+                        actual_trailer_lines[i] = mask_string_for_validation(trailer, actual_trailer_lines[i], char_to_mask=context_dict.job_cfg.ingnorable_character)
+                    if trailer != actual_trailer_lines[i]:
+                        logger.error(f"Validation failed for trailer line {i+1}, Expected {trailer=} but got {actual_trailer_lines[i]=}")
+                        raise ValueError(f"Validation failed for trailer line {i+1}, Expected {trailer=} but got {actual_trailer_lines[i]=}")
+                    else:
+                        logger.info(f"Validation passed for trailer line {i+1}, Expected {trailer=} and got {actual_trailer_lines[i]=}")
 
 def initialize_for_outputfile(step_info):
-    if 'headers_in_order' in step_info.file:
+    if 'headers_in_order' in step_info.file and step_info.file.headers_in_order:
         step_info.file.headers_in_order = list(map(process_template,step_info.file.headers_in_order))
-    for i in range(len(step_info.file.headers_in_order)):
-        if 'AUTOPOPULATECOLNAMES' in step_info.file.headers_in_order[i]:
-            local_context = benedict()
-            if step_info.type == SQL_BCP_EXTRACTOR or step_info.type == SQL_PANDA_EXTRACTOR:
-                local_context.base_select_query = read_sql_file(f'sql/{step_info.sqlfile.name}')
-                renderedstring = render_sql_template('cte_for_column_names.sql',local_context)
-                column_names_pd = get_query_data_pd_bydbid(f'{step_info.sqlfile.database}_{step_info.env}',renderedstring)
-            else:
-                local_context.base_select_query = f'select * from {step_info.table.name}'
-                renderedstring = render_sql_template('cte_for_column_names.sql',local_context)
-                column_names_pd = get_query_data_pd_bydbid(f'{step_info.table.database}_{step_info.env}',renderedstring)
-            #ic(column_names_pd.columns)
-            if 'header_delimiter' in step_info.file:
-                sep = step_info.file.header_delimiter
-            elif 'delimiter' in step_info.file:
-                sep = step_info.file.delimiter
-            else:
-                sep=','
-            if 'header_quote_char' in step_info.file:
-                header_quote_char = step_info.file.header_quote_char
-                step_info.file.headers_in_order[i] = step_info.file.headers_in_order[i].replace('AUTOPOPULATECOLNAMES', list_to_string([f'{header_quote_char}{col}{header_quote_char}' for col in column_names_pd.columns.tolist()], sep=sep))
-            else:
-                step_info.file.headers_in_order[i] = step_info.file.headers_in_order[i].replace('AUTOPOPULATECOLNAMES', list_to_string(column_names_pd.columns.tolist(),sep=sep))
+        for i in range(len(step_info.file.headers_in_order)):
+            if 'AUTOPOPULATECOLNAMES' in step_info.file.headers_in_order[i]:
+                local_context = benedict()
+                if step_info.type == SQL_BCP_EXTRACTOR or step_info.type == SQL_PANDAS_EXTRACTOR:
+                    local_context.base_select_query = read_sql_file(f'sql/{step_info.sqlfile.name}')
+                    renderedstring = render_sql_template('cte_for_column_names.sql',local_context)
+                    column_names_pd = get_query_data_pd_bydbid(f'{step_info.sqlfile.database}_{step_info.env}',renderedstring)
+                else:
+                    local_context.base_select_query = f'select * from {step_info.table.name}'
+                    renderedstring = render_sql_template('cte_for_column_names.sql',local_context)
+                    column_names_pd = get_query_data_pd_bydbid(f'{step_info.table.database}_{step_info.env}',renderedstring)
+                #ic(column_names_pd.columns)
+                if 'header_delimiter' in step_info.file:
+                    sep = step_info.file.header_delimiter
+                elif 'delimiter' in step_info.file:
+                    sep = step_info.file.delimiter
+                else:
+                    sep=','
+                if 'header_quote_char' in step_info.file:
+                    header_quote_char = step_info.file.header_quote_char
+                    step_info.file.headers_in_order[i] = step_info.file.headers_in_order[i].replace('AUTOPOPULATECOLNAMES', list_to_string([f'{header_quote_char}{col}{header_quote_char}' for col in column_names_pd.columns.tolist()], sep=sep))
+                else:
+                    step_info.file.headers_in_order[i] = step_info.file.headers_in_order[i].replace('AUTOPOPULATECOLNAMES', list_to_string(column_names_pd.columns.tolist(),sep=sep))
     if 'ext' not in step_info.file:
             step_info.file.ext = ''
 
-def process_output_file(step_info):
-    if 'trailers_in_order' in step_info.file:
-        step_info.file.trailers_in_order = list(map(process_template,step_info.file.trailers_in_order))
-        #ic(step_info.file.headers_in_order)
-    if not os.path.exists(step_info.file.FULLFILENAME):
-        logger.error(f"Extractor process failed, File {step_info.file.FULLFILENAME} does not exist")
-        raise FileNotFoundError(f"Extractor process failed, File {step_info.file.FULLFILENAME} does not exist")
-    add_header_trailer(step_info.file.FULLFILENAME, step_info.file.headers_in_order, step_info.file.trailers_in_order)
-    if 'validate' in step_info.file and step_info.file.validate and step_info.file.validate == True:
-        step_info.file.FILELINECOUNT = get_number_of_lines(step_info.file.FULLFILENAME)
-        if step_info.file.FILELINECOUNT != step_info.file.EXPECTEDFILELINECOUNT:
-            logger.error(f"Validation failed fpr EXPECTEDFILELINECOUNT vs FILELINECOUNT, Expected {step_info.file.EXPECTEDFILELINECOUNT=} but got {step_info.file.FILELINECOUNT=}")
-            raise ValueError(f"Validation failed for EXPECTEDFILELINECOUNT vs FILELINECOUNT, Expected {step_info.file.EXPECTEDFILELINECOUNT=} but got {step_info.file.FILELINECOUNT=}")
+async def process_output_file(file,PROCESSEDROWCNT):
+    if 'trailers_in_order' in file and file.trailers_in_order:
+        file.trailers_in_order = list(map(process_template,file.trailers_in_order))
+        #ic(file.headers_in_order)
+    if 'headers_in_order' in file and file.headers_in_order:
+        file.headers_in_order = list(map(process_template,file.headers_in_order))
+    if not os.path.exists(file.FULLFILENAME):
+        logger.error(f"Extractor process failed, File {file.FULLFILENAME} does not exist")
+        raise FileNotFoundError(f"Extractor process failed, File {file.FULLFILENAME} does not exist")
+    await add_last_empty_line(file.FULLFILENAME)
+    add_header_trailer(file.FULLFILENAME, file.headers_in_order, file.trailers_in_order)
+    if 'validate' in file and file.validate and file.validate == True:
+        file.FILELINECOUNT = get_number_of_lines(file.FULLFILENAME)
+        if file.FILELINECOUNT != file.EXPECTEDFILELINECOUNT:
+            logger.error(f"Validation failed fpr EXPECTEDFILELINECOUNT vs FILELINECOUNT, Expected {file.EXPECTEDFILELINECOUNT=} but got {file.FILELINECOUNT=}")
+            raise ValueError(f"Validation failed for EXPECTEDFILELINECOUNT vs FILELINECOUNT, Expected {file.EXPECTEDFILELINECOUNT=} but got {file.FILELINECOUNT=}")
         else:
-            logger.info(f"Validation passed for EXPECTEDFILELINECOUNT vs FILELINECOUNT, Expected {step_info.file.EXPECTEDFILELINECOUNT=} and got {step_info.file.FILELINECOUNT=}")
-        if step_info.PROCESSEDROWCNT != step_info.file.DATALINECOUNT:
-            logger.error(f"Validation failed for PROCESSEDROWCNT vs DATALINECOUNT, Expected {step_info.PROCESSEDROWCNT=} but got {step_info.file.DATALINECOUNT=}")
-            raise ValueError(f"Validation failed, PROCESSEDROWCNT vs DATALINECOUNT, Expected {step_info.PROCESSEDROWCNT=} but got {step_info.file.DATALINECOUNT=}")
+            logger.info(f"Validation passed for EXPECTEDFILELINECOUNT vs FILELINECOUNT, Expected {file.EXPECTEDFILELINECOUNT=} and got {file.FILELINECOUNT=}")
+        if PROCESSEDROWCNT != file.DATALINECOUNT:
+            logger.error(f"Validation failed for PROCESSEDROWCNT vs DATALINECOUNT, Expected {PROCESSEDROWCNT=} but got {file.DATALINECOUNT=}")
+            raise ValueError(f"Validation failed, PROCESSEDROWCNT vs DATALINECOUNT, Expected {PROCESSEDROWCNT=} but got {file.DATALINECOUNT=}")
         else:
-            logger.info(f"Validation passed PROCESSEDROWCNT vs DATALINECOUNT, Expected {step_info.PROCESSEDROWCNT=} and got {step_info.file.DATALINECOUNT=}")
+            logger.info(f"Validation passed PROCESSEDROWCNT vs DATALINECOUNT, Expected {PROCESSEDROWCNT=} and got {file.DATALINECOUNT=}")
+
+
+
+async def add_last_empty_line(file_path):
+    bash_script = f"""
+        if [ -z "$(tail -n 1 {file_path})" ]
+        then
+            echo "Last line is empty"
+        else
+            echo "Last line is not empty. Adding an empty line..."
+            echo "" >> {file_path}
+        fi
+    """
+    run_subprocess_command(bash_script)
+
+
 
 @logger.catch(reraise=True)
-async def sql_panda_extractor(jobstepid):
+async def sql_pandas_extractor(jobstepid):
     step_info = context_dict.job_steps_dict[jobstepid]
     process_connecton_string(step_info.sqlfile,jobstepid)
     generate_complete_filename(step_info.file)
     initialize_for_outputfile(step_info)
     await panda_file_processor(jobstepid=jobstepid)
-    process_rawoutputfile_counts(step_info.file)
-    process_output_file(step_info)
+    await process_rawoutputfile_counts(step_info.file)
+    await process_output_file(step_info.file,step_info.PROCESSEDROWCNT)
  
 def mask_string_for_validation(string_with_mask, string_to_mask, char_to_mask):
     mask_locations = [i for i, char in enumerate(string_with_mask) if char == char_to_mask]
@@ -576,21 +662,21 @@ def generate_complete_filename(file_info):
     return str(complete_filename)
 
 
-def process_rawoutputfile_counts(file_info):
+async def process_rawoutputfile_counts(file_info):
     file_info.DATALINECOUNT = get_number_of_lines(file_info.FULLFILENAME)
     file_info.EXPECTEDFILELINECOUNT = file_info.DATALINECOUNT
-    if HEADERS_IN_ORDER in file_info:
+    if HEADERS_IN_ORDER in file_info and file_info.headers_in_order:
         file_info.EXPECTEDFILELINECOUNT = file_info.EXPECTEDFILELINECOUNT + len(file_info.headers_in_order)
-    if TRAILERS_IN_ORDER in file_info:
+    if TRAILERS_IN_ORDER in file_info and file_info.trailers_in_order:
         file_info.EXPECTEDFILELINECOUNT = file_info.EXPECTEDFILELINECOUNT + len(file_info.trailers_in_order)
     return file_info
 
-def preprocess_maininputfile_counts(file_info):
+async  def preprocess_maininputfile_counts(file_info):
     file_info.FILELINECOUNT = get_number_of_lines(file_info.FULLFILENAME)
     file_info.EXPECTEDDATALINECOUNT = file_info.FILELINECOUNT
-    if HEADERS_IN_ORDER in file_info:
+    if HEADERS_IN_ORDER in file_info and file_info.headers_in_order:
         file_info.EXPECTEDDATALINECOUNT = file_info.EXPECTEDDATALINECOUNT - len(file_info.headers_in_order)
-    if TRAILERS_IN_ORDER in file_info:
+    if TRAILERS_IN_ORDER in file_info and file_info.trailers_in_order:
         file_info.EXPECTEDDATALINECOUNT = file_info.EXPECTEDDATALINECOUNT - len(file_info.trailers_in_order)
     return file_info
 
@@ -611,7 +697,7 @@ def render_sql_template(template_name, context_dict):
 async def panda_file_processor(jobstepid=None):
     step_info = context_dict.job_steps_dict[jobstepid]
     file_step_info = step_info.file
-    if context_dict.job_steps_dict[jobstepid].type == SQL_PANDA_EXTRACTOR:
+    if context_dict.job_steps_dict[jobstepid].type == SQL_PANDAS_EXTRACTOR:
         panda_direction = 'out'
     else:
         panda_direction = 'in'
@@ -622,21 +708,32 @@ async def panda_file_processor(jobstepid=None):
     #Unused
     first_row = None
     last_row = None
+    widths = None
+    alignments = None
+    if file_step_info.type == 'delimitedfile':
+        if 'delimiter' in file_step_info:
+            delimiter = file_step_info.delimiter
+        else:
+            delimiter = ','
+        quoting = None
+        if 'quote_char' in file_step_info:
+            quote_char = file_step_info.quote_char
+            quoting = csv.QUOTE_ALL
+        # else:
+        #     quote_char = ''
+        if 'escape_char' in file_step_info:
+            escape_char = file_step_info.escape_char
+        else:
+            escape_char = '\\'
+    elif file_step_info.type == 'fixedwidthfile':
+        if 'widhts' not in file_step_info and 'alignments' not in file_step_info and not file_step_info.widths and not file_step_info.alignments:
+            raise ValueError("widhts and alignments not provided in file")
+        else:
+            widths = string_to_list(file_step_info.widths)
+            alignments = string_to_list(file_step_info.alignments)
+            
+        
 
-    if 'delimiter' in file_step_info:
-        delimiter = file_step_info.delimiter
-    else:
-        delimiter = ','
-    quoting = None
-    if 'quote_char' in file_step_info:
-        quote_char = file_step_info.quote_char
-        quoting = csv.QUOTE_ALL
-    # else:
-    #     quote_char = ''
-    if 'escape_char' in file_step_info:
-        escape_char = file_step_info.escape_char
-    else:
-        escape_char = '\\'
 
     #Unused    
     if 'first_row' in file_step_info:
@@ -644,14 +741,28 @@ async def panda_file_processor(jobstepid=None):
     if 'last_row' in file_step_info:
         last_row = file_step_info.last_row
 
+  
     if panda_direction == 'in':
-        remove_header_command = f"sed '1,{len(file_step_info.headers_in_order)}d' {filename} > {filename}.cleaned"
-        ic(remove_header_command)
-        run_subprocess_command(remove_header_command)
-        tailer_var = file_step_info.FILELINECOUNT - len(file_step_info.trailers_in_order) + 1 - len(file_step_info.headers_in_order) 
-        remove_trailer_command = f"sed -i '{tailer_var},$d' {filename}.cleaned"
-        print(remove_trailer_command)
-        run_subprocess_command(remove_trailer_command)
+        ingestion_file =  filename
+        cleaned_file_used=False
+        if 'headers_in_order' in file_step_info and file_step_info.headers_in_order:
+            remove_header_command = f"sed '1,{len(file_step_info.headers_in_order)}d' {filename} > {filename}.cleaned"
+            ic(remove_header_command)
+            run_subprocess_command(remove_header_command)
+            cleaned_file_used = True
+            ingestion_file =  f"{filename}.cleaned"
+            header_lines = len(file_step_info.headers_in_order)
+        else:
+            header_lines = 0
+        if 'trailers_in_order' in file_step_info and file_step_info.trailers_in_order:
+            tailer_var = file_step_info.FILELINECOUNT - len(file_step_info.trailers_in_order) + 1 - header_lines
+            if cleaned_file_used:
+                remove_trailer_command = f"sed -i '{tailer_var},$d' {filename}.cleaned"
+            else:
+                remove_trailer_command = f"sed '{tailer_var},$d' {filename} > {filename}.cleaned"
+            print(remove_trailer_command)
+            ingestion_file =  f"{filename}.cleaned"
+            run_subprocess_command(remove_trailer_command)
     
 
     
@@ -662,41 +773,241 @@ async def panda_file_processor(jobstepid=None):
         pand_select_query = read_sql_file(f'sql/{step_info.sqlfile.name}')
         df = pd.read_sql_query(pand_select_query, pandacon)
         context_dict.job_steps_dict[jobstepid].PROCESSEDROWCNT = len(df)
-        df.to_csv(filename, index=False, sep=delimiter,quoting=quoting, quotechar=quote_char, escapechar=escape_char, header=False)
+        if quote_char:
+            quoting = csv.QUOTE_ALL
+        else:
+            quoting = csv.QUOTE_NONE
+        if file_step_info.type == 'delimitedfile':
+            df.to_csv(filename, index=False, sep=delimiter,quoting=quoting, quotechar=quote_char, escapechar=escape_char, header=False)
+        elif file_step_info.type == 'fixedwidthfile':
+            if 'dataframe_columns' in step_info.file and step_info.file.dataframe_columns:
+                column_list = string_to_list(step_info.file.dataframe_columns)
+            else:
+                raise ValueError("dataframe_columns not provided in file")
+            formatted_rows = df.apply(format_row, axis=1, args=(widths,alignments,column_list))
+            with open(filename, 'w') as outfile:
+                outfile.write('\n'.join(formatted_rows))
+            # Apply the formatter to each row of the DataFrame, then write the result to a file
+          
     else:
         pandacon = get_panda_con(f'{step_info.table.database}_{step_info.table.env}')
-        chunksize = 1000
+        chunksize = 12000
+        if 'chunksize' in context_dict.job_cfg and context_dict.job_cfg.chunksize:
+            chunksize = context_dict.job_cfg.chunksize
+        if 'chunksize' in step_info.file and step_info.file.chunksize:
+            chunksize = step_info.file.chunksize
         set_local_dbvarialbes(step_info.table,jobstepid)
         step_info.PROCESSEDROWCNT = 0
         # Read the CSV file in chunks
-        con = get_con_for_panda(f'{step_info.table.database}_{step_info.table.env}')
-        column_list = string_to_list(step_info.file.dataframe_columns)
-        df = pd.read_csv(f"{filename}.cleaned", delimiter=delimiter, quotechar=quote_char,quoting=csv.QUOTE_ALL, escapechar=escape_char , names=column_list)
-        print(df)
-        print(len(df))
-        print(df)
-        print(len(df))
-
+        #con = get_con_for_panda(f'{step_info.table.database}_{step_info.table.env}')
+        if 'dataframe_columns' in step_info.file and step_info.file.dataframe_columns:
+            column_list = string_to_list(step_info.file.dataframe_columns)
+        else:
+            raise ValueError("dataframe_columns not provided in file")
+        #df = pd.read_csv(f"{filename}.cleaned", delimiter=delimiter, quotechar=quote_char,quoting=csv.QUOTE_ALL, escapechar=escape_char , names=column_list)
         engine = create_engine(step_info.table.local_context_dict.connection_string)
         # with engine.begin() as connection:
         #     idenity_insert_on_command = f"SET IDENTITY_INSERT {step_info.table.local_context_dict.basedatabase}.dbo.{step_info.table.name} ON"
         #     connection.execute(text(idenity_insert_on_command))
         #     df.to_sql(step_info.table.name, connection , if_exists='append', schema=f'dbo',index=False)
         # step_info.PROCESSEDROWCNT = len(df)
-
-
         
-        ic('xxxx')
         with engine.begin() as connection:
-            idenity_insert_on_command = f"SET IDENTITY_INSERT {step_info.table.local_context_dict.basedatabase}.dbo.{step_info.table.name} ON"
+            #idenity_insert_on_command = f"SET IDENTITY_INSERT {step_info.table.local_context_dict.basedatabase}.dbo.{step_info.table.name} ON"
+            idenity_insert_on_command = f"""
+                IF EXISTS (
+                SELECT 1
+                FROM sys.columns
+                WHERE object_id = OBJECT_ID('{step_info.table.name}')
+                AND is_identity = 1
+                )
+                BEGIN
+                SET IDENTITY_INSERT {step_info.table.name} ON;
+                END;
+                """
             connection.execute(text(idenity_insert_on_command))
-            for i, chunk in enumerate(pd.read_csv(f"{filename}.cleaned", delimiter=delimiter, quotechar=quote_char,quoting=csv.QUOTE_ALL, escapechar=escape_char , names=column_list, chunksize=chunksize)):
-                try:
-                    # Insert each chunk into the table
-                    #con = get_con_for_panda(f'{step_info.table.database}_{step_info.table.env}')
-                    #chunk.to_sql(step_info.table.name, con , if_exists='append', schema=f'{step_info.table.local_context_dict.basedatabase}.dbo')  # replace 'my_table' with your actual table name
-                    chunk.to_sql(step_info.table.name, connection , if_exists='append', schema=f'dbo',index=False)  # replace 'my_table' with your actual table name
-                    step_info.PROCESSEDROWCNT += len(chunk)
-                except Exception as e:
-                    print(f"Error processing chunk {i}: {e}")
+            if quote_char:
+                quoting = csv.QUOTE_ALL
+            else:
+                quoting = csv.QUOTE_NONE
+
+
+            if file_step_info.type == 'delimitedfile':
+                for i, chunk in enumerate(pd.read_csv(f"{ingestion_file}", delimiter=delimiter, quotechar=quote_char,quoting=quoting, escapechar=escape_char , names=column_list, chunksize=chunksize, header=None)):
+                    try:
+                        # Insert each chunk into the table
+                        #con = get_con_for_panda(f'{step_info.table.database}_{step_info.table.env}')
+                        #chunk.to_sql(step_info.table.name, con , if_exists='append', schema=f'{step_info.table.local_context_dict.basedatabase}.dbo')  # replace 'my_table' with your actual table name
+                        chunk.to_sql(step_info.table.name, connection , if_exists='append', schema=f'dbo',index=False)  # replace 'my_table' with your actual table name
+                        step_info.PROCESSEDROWCNT += len(chunk)
+                    except Exception as e:
+                        print(f"Error processing chunk {i}: {e}")
+                        raise e
+            elif file_step_info.type == 'fixedwidthfile':
+                widths = [int(width) for width in string_to_list(file_step_info.widths)]
+                for i, chunk in enumerate(pd.read_fwf(f"{ingestion_file}", widths=widths, names=column_list, chunksize=chunksize, header=None, alignments=alignments)):
+                    try:
+                        # Insert each chunk into the table
+                        #con = get_con_for_panda(f'{step_info.table.database}_{step_info.table.env}')
+                        #chunk.to_sql(step_info.table.name, con , if_exists='append', schema=f'{step_info.table.local_context_dict.basedatabase}.dbo')  # replace 'my_table' with your actual table name
+                        chunk.to_sql(step_info.table.name, connection , if_exists='append', schema=f'dbo',index=False)  # replace 'my_table' with your actual table name
+                        step_info.PROCESSEDROWCNT += len(chunk)
+                    except Exception as e:
+                        print(f"Error processing chunk {i}: {e}")
+                        raise e
+                
+            idenity_insert_off_command =     f"""
+                IF EXISTS (
+                SELECT 1
+                FROM sys.columns
+                WHERE object_id = OBJECT_ID('{step_info.table.name}')
+                AND is_identity = 1
+                )
+                BEGIN
+                SET IDENTITY_INSERT {step_info.table.name} OFF;
+                END;
+            """
+            connection.execute(text(idenity_insert_off_command))
+        check_and_delete_file(f"{filename}.cleaned")
         
+
+async def simple_file_to_file_transformer(jobstepid):
+    step_info = context_dict.job_steps_dict[jobstepid]
+    check_mandatory_proeperties(step_info,MANDATORT_SIMPLE_FILE_TO_FILE_PROPERTIES)
+    generate_complete_filename(step_info.filei)
+    generate_complete_filename(step_info.fileo)
+    await preprocess_input_file(step_info.filei)
+    file_step_info_i = step_info.filei
+
+
+    delimiter_i = None
+    quote_char_i = None
+    escape_char_i = None
+    widths_i = None
+    alignments_i = None
+    if file_step_info_i.type == 'delimitedfile':
+        if 'delimiter' in file_step_info_i:
+            delimiter_i = file_step_info_i.delimiter
+        else:
+            delimiter_i = ','
+        quoting = csv.QUOTE_NONE
+        if 'quote_char' in file_step_info_i:
+            quote_char_i = file_step_info_i.quote_char
+            quoting = csv.QUOTE_ALL
+        # else:
+        #     quote_char = ''
+        if 'escape_char' in file_step_info_i:
+            escape_char_i = file_step_info_i.escape_char
+        else:
+            escape_char_i = '\\'
+    elif file_step_info_i.type == 'fixedwidthfile':
+        if 'widhts' not in file_step_info_i and 'alignments' not in file_step_info_i and not file_step_info_i.widths and not file_step_info_i.alignments:
+            raise ValueError("widhts and alignments not provided in file")
+        else:
+            widths_i = string_to_list(file_step_info_i.widths)
+            alignments_i = string_to_list(file_step_info_i.alignments)
+
+    file_step_info_o = step_info.fileo
+    if file_step_info_o.type == 'delimitedfile':
+        if 'delimiter' in file_step_info_o:
+            delimiter_o= file_step_info_o.delimiter
+        else:
+            delimiter_o= ','
+        quoting = csv.QUOTE_NONE
+        if 'quote_char' in file_step_info_o:
+            quote_char_o= file_step_info_o.quote_char
+            quoting = csv.QUOTE_ALL
+        # else:
+        #     quote_char = ''
+        if 'escape_char' in file_step_info_o:
+            escape_char_o= file_step_info_o.escape_char
+        else:
+            escape_char_o= '\\'
+    elif file_step_info_o.type == 'fixedwidthfile':
+        if 'widhts' not in file_step_info_o and 'alignments' not in file_step_info_o and not file_step_info_o.widths and not file_step_info_o.alignments:
+            raise ValueError("widhts and alignments not provided in file")
+        else:
+            widths_o= string_to_list(file_step_info_o.widths)
+            alignments_o= string_to_list(file_step_info_o.alignments)   
+
+
+    ingestion_file = cleanheader_and_trailer(file_step_info_i)
+    ic(ingestion_file)
+
+    if 'chunksize' in context_dict.job_cfg and context_dict.job_cfg.chunksize:
+        chunksize = context_dict.job_cfg.chunksize
+
+
+    if 'dataframe_columns' in step_info.filei and step_info.filei.dataframe_columns:
+        column_list_i = string_to_list(step_info.filei.dataframe_columns)
+    else:
+        raise ValueError("dataframe_columns not provided in filei")
+    
+    if 'dataframe_columns' in step_info.fileo and step_info.fileo.dataframe_columns:
+        column_list_o = string_to_list(step_info.filei.dataframe_columns)
+    else:
+        raise ValueError("dataframe_columns not provided in fileo")
+    
+    output_file =  file_step_info_o.FULLFILENAME
+    step_info.PROCESSEDROWCNT = 0
+    check_and_delete_file(output_file)
+    if file_step_info_i.type == 'delimitedfile':
+        widths = [int(width) for width in string_to_list(file_step_info_o.widths)]
+        df = pd.read_csv(f"{ingestion_file}", delimiter=delimiter_i, quotechar=quote_char_i,quoting=quoting, escapechar=escape_char_i , names=column_list_i, header=None)
+        formatted_rows = df.apply(format_row, axis=1, args=(widths,alignments_o,column_list_o))
+        with open(output_file, 'a') as outfile:
+            outfile.write('\n'.join(formatted_rows))
+        step_info.PROCESSEDROWCNT = len(df)
+
+        # for i, chunk in enumerate(pd.read_csv(f"{ingestion_file}", delimiter=delimiter_i, quotechar=quote_char_i,quoting=quoting, escapechar=escape_char_i , names=column_list_i, chunksize=chunksize, header=None)):
+        #     try:
+        #         formatted_rows = chunk.apply(format_row, axis=1, args=(widths,alignments_o,column_list_o))
+        #         with open(output_file, 'a') as outfile:
+        #             outfile.write('\n'.join(formatted_rows))
+        #         step_info.PROCESSEDROWCNT += len(chunk)
+        #     except Exception as e:
+        #         print(f"Error processing chunk {i}: {e}")
+        #         raise e
+    elif file_step_info_i.type == 'fixedwidthfile':
+        widths = [int(width) for width in string_to_list(file_step_info_i.widths)]
+        for i, chunk in enumerate(pd.read_fwf(f"{ingestion_file}", widths=widths, names=column_list_i, chunksize=chunksize, header=None, alignments=alignments_i)):
+            try:
+              chunk.to_csv(output_file, index=False, sep=delimiter_o,quoting=quoting, quotechar=quote_char_o, escapechar=escape_char_o, header=False, mode='a')
+              step_info.PROCESSEDROWCNT += len(chunk)
+            except Exception as e:
+                print(f"Error processing chunk {i}: {e}")
+                raise e
+    ic(step_info.PROCESSEDROWCNT)
+    ic(step_info.filei.FILELINECOUNT)
+    await process_rawoutputfile_counts(step_info.fileo)
+    await process_output_file(step_info.fileo,step_info.PROCESSEDROWCNT)
+    if 'cleaned' in ingestion_file:
+        check_and_delete_file(ingestion_file)
+    
+
+
+
+
+
+def cleanheader_and_trailer(file_step_info):
+    ingestion_file =  file_step_info.FULLFILENAME
+    cleaned_file_used=False
+    if 'headers_in_order' in file_step_info and file_step_info.headers_in_order:
+        remove_header_command = f"sed '1,{len(file_step_info.headers_in_order)}d' {file_step_info.FULLFILENAME} > {file_step_info.FULLFILENAME}.cleaned"
+        ic(remove_header_command)
+        run_subprocess_command(remove_header_command)
+        cleaned_file_used = True
+        ingestion_file =  f"{file_step_info.FULLFILENAME}.cleaned"
+        header_lines = len(file_step_info.headers_in_order)
+    else:
+        header_lines = 0
+    if 'trailers_in_order' in file_step_info and file_step_info.trailers_in_order:
+        tailer_var = file_step_info.FILELINECOUNT - len(file_step_info.trailers_in_order) + 1 - header_lines
+        if cleaned_file_used:
+            remove_trailer_command = f"sed -i '{tailer_var},$d' {file_step_info.FULLFILENAME}.cleaned"
+        else:
+            remove_trailer_command = f"sed '{tailer_var},$d' {file_step_info.FULLFILENAME} > {file_step_info.FULLFILENAME}.cleaned"
+        print(remove_trailer_command)
+        ingestion_file =  f"{file_step_info.FULLFILENAME}.cleaned"
+        run_subprocess_command(remove_trailer_command)
+    return ingestion_file

@@ -36,7 +36,7 @@ group_seperator: "¶"
 component_seperator: "•"
 ingnorable_character: '🧹'
 child_access_symbol: '→'
-
+chunksize : 1000
 common_variables:
   test_varialbe: "test_value"
   test_varialbe1: "test_value2"
@@ -139,7 +139,7 @@ job_steps:
           - 'RECORDCOUNT=¶step2→PROCESSEDROWCNT•int•08d¶'
           - 'LINECOUNT=¶step2→file→EXPECTEDFILELINECOUNT•int•08d¶'
   - step3:
-      type: sql_panda_extractor
+      type: sql_pandas_extractor
       sqlfile:
         name: 'first_job_sql_query.sql'
         database: remote

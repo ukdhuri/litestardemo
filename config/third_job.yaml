@@ -1,0 +1,185 @@
+---
+# Sample YAML configuration
+
+#any new varialbe will be added in this sample yaml
+# Following varialbes are available to use directely without defining in file
+# BDATE = this is business date, follows business schedule of working days
+# CDATE = this is current datetime, follows system date. Thsi contains time, you can format it as per your requirement
+# CTIME = same as abolve
+# FILELINECNT = this is file line count, number of lines in data file
+# PROCESSEDROWCNT = this is total number of record processed by bcp 
+# ENV = this is environment, follows environment Value, comes from command line parameter
+
+# OUPUTFILELINES = this is output file line count, number of lines in output file (this is of the file including header and trailer)
+# INPUTFILELINES = this is input file line count, number of lines in input file (including header and trailer)
+# INPUTFILEDATALINECOUNT = number of line in inputfile excluding header and trailer
+# OUTPUTFILERDATALINECOUNT = number of line in output file excluding header and trailer, this number can differ from actual records in file if some data contains new line character
+# INPUTDATAFRAMELENGHT = this is input data frame lenght, number of rows in input data frame
+# OUTPUTDATAFRAMELENGHT = this is output data frame lenght, number of rows in output data frame
+
+# AUTOPOPULATECOLNAMES = value of this will be replaced by column names of the file, this is used in headers_in_order. This variable should be sole vaiable in the string
+# FILELINECOUNT =  this is file line count, number of lines in file
+# DATALINECOUNT = = number of line in output file excluding header and trailer, this number can differ from actual records in file if some data contains new line character
+# FILENAME = Inside input or output file configuration, this will be replaced by current file name after processing placeholder but without base path
+# FULLFILENAME = Inside input or output file configuration, this will be replaced by current file name after processing placeholder with base path
+# FILENAMEWE = Inside input or output file configuration, this will be replaced by current file name after processing placeholder but without base path and extension
+# EXPECTEDFILELINECOUNT = this is expected final count, sum of datalinecount and all the headers and trailers
+# EXPECTEDDATALINECOUNT = this is expected data line count, without header and trailer lines
+
+
+#write a python funtion to generate sql query, you may use jinja2, in this i will pass source table anem and target table name both have 
+
+
+# Define job name
+
+
+# Define job name
+name: first_job
+group_seperator: "¶"
+component_seperator: "•"
+ingnorable_character: '🧹'
+child_access_symbol: '→'
+chunksize: 1000
+common_variables:
+  test_varialbe: "test_value"
+  test_varialbe1: "test_value2"
+
+
+# Define job steps
+job_steps:
+  - step_fixedwith_test:
+      type: simple_file_to_file_transformer
+      filei:
+        validate: True
+        type: fixedwidthfile
+        widths : '10,5,50,100'
+        alignments : '<,<,>,^'
+        path: "/home/deck/outbound"
+        prefix: "FirstTestSampleA_¶BDATE•date•YYYYMMDD¶"
+        ext: ".fwf"
+        headers_in_order:
+          - "yyyyyyyyyyyyyyyyy"
+        trailers_in_order:
+        dataframe_columns: 'orderid,batch_id,name,EmAiL'
+      fileo:
+        type: delimitedfile
+        delimiter: "," #optional default is ','
+        quote_char : '"'  #optional default is empty
+        escape_char: '\'  #optional default is \, not used in bcp as of now, for future usey 
+        path: "/home/deck/outbound"
+        prefix: "FirstTestSampleD_¶BDATE•date•YYYYMMDD¶"
+        ext: ".csv"
+        headers_in_order:
+          - "FILENAME=¶step_fixedwith_test→fileo→FILENAME•str•<6¶ BATCH_DATE=¶BDATE•date•YYYY-MM-DD¶  CREATED_AT=¶CTIME•date•YYYY-MM-DDHH:mm:ss¶"
+          - "xxxxxxxxxxxxxxxxxxx"
+          - "orderid,batch_id,name,EmAiL"
+        trailers_in_order:
+        dataframe_columns: 'orderid,batch_id,name,EmAiL'
+  - step_fixedwith_test2:
+      type: simple_file_to_file_transformer
+      filei:
+        validate: True
+        type: delimitedfile
+        delimiter: "," #optional default is ','
+        quote_char : '"'  #optional default is empty
+        escape_char: '\'  #optional default is \, not used in bcp as of now, for future usey 
+        path: "/home/deck/outbound"
+        prefix: "FirstTestSampleD_¶BDATE•date•YYYYMMDD¶"
+        ext: ".csv"
+        headers_in_order:
+          - "FILENAME=¶step_fixedwith_test2→filei→FILENAME•str•<6¶ BATCH_DATE=¶BDATE•date•YYYY-MM-DD¶  CREATED_AT=🧹🧹🧹🧹🧹🧹🧹🧹🧹🧹🧹🧹🧹🧹🧹🧹🧹🧹"
+          - "xxxxxxxxxxxxxxxxxxx"
+          - "orderid,batch_id,name,EmAiL"
+        trailers_in_order:
+        dataframe_columns: 'orderid,batch_id,name,EmAiL'
+      fileo:
+        validate: True
+        type: fixedwidthfile
+        widths : '10,5,50,100'
+        alignments : '<,<,>,^'
+        path: "/home/deck/outbound"
+        prefix: "FirstTestSampleE_¶BDATE•date•YYYYMMDD¶"
+        ext: ".fwf"
+        headers_in_order:
+          - "yyyyyyyyyyyyyyyyy"
+        trailers_in_order:
+          - 'RECORDCOUNT=¶step_fixedwith_test2→PROCESSEDROWCNT•int•08d¶'
+        dataframe_columns: 'orderid,batch_id,name,EmAiL'
+      
+  # - step_fixedwith_test:
+  #     type: sql_pandas_extractor
+  #     sqlfile:
+  #       name: 'first_job_sql_query.sql'
+  #       database: remote
+  #     file:
+  #       validate: True
+  #       type: fixedwidthfile
+  #       widths : '10,5,50,100'
+  #       alignments : '<,<,>,^'
+  #       path: "/home/deck/outbound"
+  #       prefix: "FirstTestSampleA_¶BDATE•date•YYYYMMDD¶"
+  #       ext: ".csv"
+  #       headers_in_order:
+  #         - "yyyyyyyyyyyyyyyyy"
+  #       trailers_in_order:
+  #       dataframe_columns: 'orderid,batch_id,name,EmAiL'
+  # - step_fixedwith_r2:
+  #     type: table_pandas_loader
+  #     load_type: merge_and_load #other types are truncate_and_load and append_load
+  #     table:
+  #       name: 'combotbl'
+  #       database: remote
+  #       validate: True #only supported in loader
+  #     file:
+  #       validate: True
+  #       type: fixedwidthfile
+  #       widths : '10,5,50,100'
+  #       alignments : '<,<,>,^'
+  #       path: "/home/deck/outbound"
+  #       prefix: "FirstTestSampleA_¶BDATE•date•YYYYMMDD¶"
+  #       ext: ".csv"
+  #       headers_in_order:
+  #         - "yyyyyyyyyyyyyyyyy"
+  #       trailers_in_order:
+  #       dataframe_columns: 'orderid,batch_id,name,EmAiL'
+  # - stepa:
+  #     type: sql_pandas_extractor
+  #     sqlfile:
+  #       name: 'first_job_sql_query.sql'
+  #       database: remote
+  #     file:
+  #       validate: True
+  #       type: delimitedfile
+  #       delimiter: "," #optional default is ','
+  #       quote_char : '"'  #optional default is empty
+  #       escape_char: '\'  #optional default is \, not used in bcp as of now, for future usey 
+  #       path: "/home/deck/outbound"
+  #       prefix: "FirstTestSamplezz_¶BDATE•date•YYYYMMDD¶"
+  #       ext: ".csv"
+  #       headers_in_order:
+  #         - "FILENAME=¶stepa→file→FILENAME•str•<6¶ BATCH_DATE=¶BDATE•date•YYYY-MM-DD¶  CREATED_AT=¶CTIME•date•YYYY-MM-DDHH:mm:ss¶"
+  #         - 'orderid,batch_id,name,EmAiL'
+  #         - "yyyyyyyyyyyyyyyyy"
+  #       trailers_in_order:
+  # - stepb:
+  #     type: table_bcp_loader
+  #     load_type: truncate_and_load #other types are truncate_and_load and append_load
+  #     table:
+  #       name: 'combotbl'
+  #       database: remote
+  #       validate: True #only supported in loader
+  #       #key_columns: 'name' #needed in case of merge_load
+  #     file:
+  #       validate: True
+  #       type: delimitedfile
+  #       delimiter: "\t" #optional default is ','
+  #       quote_char : '🤣'  #optional default is empty
+  #       escape_char: '\'  #optional default is \, not used in bcp as of now, used for pandas
+  #       path: "/home/deck/outbound"
+  #       prefix: "FirstTestSampleA_¶BDATE•date•YYYYMMDD¶"
+  #       ext: ".csv"
+  #       headers_in_order:
+  #         - "yyyyyyyyyyyyyyyyy"
+  #       trailers_in_order:
+  #       dataframe_columns: 'orderid,batch_id,name,EmAiL'
+    

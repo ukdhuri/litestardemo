@@ -48,7 +48,7 @@ def create_step_dicts(data):
 
 @click.command()
 @click.option('--env', default='dev', help='Environment to run the job in')
-@click.option('--job_id', default='second_job', help='Name of the job to run')
+@click.option('--job_id', default='third_job', help='Name of the job to run')
 #@click.option('--override', default=["step5.output_file.quote_char='🤣'","step5.validation=False"], multiple=True, help='Override parameters in the format module_name.variable_name=value')
 @click.option('--override', default=[], multiple=True, help='Override parameters in the format module_name.variable_name=value')
 async def main(env, job_id, override):
@@ -71,10 +71,6 @@ async def main(env, job_id, override):
     # Join current_path and "config" using pathlib
     config_path = current_path.joinpath("config")
     initialize_config_dir(version_base=None, config_dir=str(config_path), job_name="demo")
-
-
-
-
 
 
 
@@ -159,8 +155,15 @@ async def main(env, job_id, override):
         step_info = context_dict.job_steps_dict[context_dict.job_index_dict[job_step_index]]
         logger.info(f"Job Step type is {step_info['type']}")
         #table_bcp_extractor_runner(context_dict.job_index_dict[job_step_index])
-        module = importlib.import_module(f"lib.etl_service")
         function_name = step_info['type']
+
+        if '.' in function_name:
+            module_name, function_name = function_name.split('.')
+            module = importlib.import_module(f"lib.{module_name}")
+        else:
+            module = importlib.import_module(f"lib.etl_service")
+        
+
         caller_function = getattr(module, function_name)
         await caller_function(context_dict.job_index_dict[job_step_index])
         end_time = time.perf_counter()

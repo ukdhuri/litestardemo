@@ -197,6 +197,8 @@ def get_number_of_lines(file_path):
     if platform.system() == 'Linux':
         awkcom="awk '{print $1}'"
         command = f"wc -l {file_path} | {awkcom} "
+        nawkcom = "awk 'END{print NR}' "
+        command = f"{nawkcom} {file_path}"
     elif platform.system() == 'Windows':
         command = f"powershell -Command \"(Get-Content -Path '{file_path}').Count\""
     else:
@@ -303,3 +305,7 @@ def read_sql_file(file_path):
         str: The content of the SQL file as a string.
     """
     return read_file(file_path = str(pathlib.Path(file_path)))
+
+def format_row(row, column_widths, alignments, columns):
+    formatted_values = [f'{row[col]:{align}{width}}' for col, width, align in zip(columns, column_widths, alignments)]
+    return ''.join(formatted_values)
