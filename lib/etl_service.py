@@ -297,6 +297,9 @@ def run_bcp(jobstepid=None):
         delimiter = f'{quote_char}{delimiter}{quote_char}'
     delimiter_command = f"-t '{delimiter}'"  
 
+    if bcp_direction == 'out' or bcp_direction == 'queryout':
+        check_and_delete_file(f"{bcpfile}")
+
     bcp_command = f"bcp '{bcp_source}' {bcp_direction} {bcpfile} -S '{step_info[accesstype].local_context_dict.dbserver}\{step_info[accesstype].local_context_dict.dbinstance}'  -U {step_info[accesstype].local_context_dict.dbuser} -P '{step_info[accesstype].local_context_dict.dbpassword}' {defaullt_database} {first_row_command} {last_row_command} {format_file_command} {delimiter_command} -b 20000 -c -u -e {bcperrorlogfilename}"
     bcp_command_in_log = f"bcp '{bcp_source}' {bcp_direction} {bcpfile} -S '{step_info[accesstype].local_context_dict.dbserver}\{step_info[accesstype].local_context_dict.dbinstance}' -U {step_info[accesstype].local_context_dict.dbuser} -P 'PassWordHidden'  {defaullt_database} {first_row_command} {last_row_command} {format_file_command} {delimiter_command} -b 20000 -c -u -e {bcperrorlogfilename}"
     #bcp_command = f"bcp '{table.name}' out {filename} -S '{dbserver},{dbport}' -U {dbuser} -P '{dbpassword}' -b 20000 -c -u"
@@ -564,7 +567,8 @@ async def process_output_file(file,PROCESSEDROWCNT):
     if not os.path.exists(file.FULLFILENAME):
         logger.error(f"Extractor process failed, File {file.FULLFILENAME} does not exist")
         raise FileNotFoundError(f"Extractor process failed, File {file.FULLFILENAME} does not exist")
-    await add_last_empty_line(file.FULLFILENAME)
+    if file.type == 'fixedwidthfile':
+        await add_last_empty_line(file.FULLFILENAME)
     add_header_trailer(file.FULLFILENAME, file.headers_in_order, file.trailers_in_order)
     if 'validate' in file and file.validate and file.validate == True:
         file.FILELINECOUNT = get_number_of_lines(file.FULLFILENAME)
@@ -877,9 +881,8 @@ async def simple_file_to_file_transformer(jobstepid):
     generate_complete_filename(step_info.filei)
     generate_complete_filename(step_info.fileo)
     await preprocess_input_file(step_info.filei)
+    
     file_step_info_i = step_info.filei
-
-
     delimiter_i = None
     quote_char_i = None
     escape_char_i = None
@@ -890,10 +893,10 @@ async def simple_file_to_file_transformer(jobstepid):
             delimiter_i = file_step_info_i.delimiter
         else:
             delimiter_i = ','
-        quoting = csv.QUOTE_NONE
+        quoting_i = csv.QUOTE_NONE
         if 'quote_char' in file_step_info_i:
             quote_char_i = file_step_info_i.quote_char
-            quoting = csv.QUOTE_ALL
+            quoting_i = csv.QUOTE_ALL
         # else:
         #     quote_char = ''
         if 'escape_char' in file_step_info_i:
@@ -908,15 +911,20 @@ async def simple_file_to_file_transformer(jobstepid):
             alignments_i = string_to_list(file_step_info_i.alignments)
 
     file_step_info_o = step_info.fileo
+    delimiter_o = None
+    quote_char_o = None
+    escape_char_o = None
+    widths_o = None
+    alignments_o = None
     if file_step_info_o.type == 'delimitedfile':
         if 'delimiter' in file_step_info_o:
             delimiter_o= file_step_info_o.delimiter
         else:
             delimiter_o= ','
-        quoting = csv.QUOTE_NONE
+        quoting_o = csv.QUOTE_NONE
         if 'quote_char' in file_step_info_o:
             quote_char_o= file_step_info_o.quote_char
-            quoting = csv.QUOTE_ALL
+            quoting_o = csv.QUOTE_ALL
         # else:
         #     quote_char = ''
         if 'escape_char' in file_step_info_o:
@@ -953,7 +961,7 @@ async def simple_file_to_file_transformer(jobstepid):
     check_and_delete_file(output_file)
     if file_step_info_i.type == 'delimitedfile':
         widths = [int(width) for width in string_to_list(file_step_info_o.widths)]
-        df = pd.read_csv(f"{ingestion_file}", delimiter=delimiter_i, quotechar=quote_char_i,quoting=quoting, escapechar=escape_char_i , names=column_list_i, header=None)
+        df = pd.read_csv(f"{ingestion_file}", delimiter=delimiter_i, quotechar=quote_char_i,quoting=quoting_i, escapechar=escape_char_i , names=column_list_i, header=None)
         formatted_rows = df.apply(format_row, axis=1, args=(widths,alignments_o,column_list_o))
         with open(output_file, 'a') as outfile:
             outfile.write('\n'.join(formatted_rows))
@@ -972,7 +980,7 @@ async def simple_file_to_file_transformer(jobstepid):
         widths = [int(width) for width in string_to_list(file_step_info_i.widths)]
         for i, chunk in enumerate(pd.read_fwf(f"{ingestion_file}", widths=widths, names=column_list_i, chunksize=chunksize, header=None, alignments=alignments_i)):
             try:
-              chunk.to_csv(output_file, index=False, sep=delimiter_o,quoting=quoting, quotechar=quote_char_o, escapechar=escape_char_o, header=False, mode='a')
+              chunk.to_csv(output_file, index=False, sep=delimiter_o,quoting=quoting_o, quotechar=quote_char_o, escapechar=escape_char_o, header=False, mode='a')
               step_info.PROCESSEDROWCNT += len(chunk)
             except Exception as e:
                 print(f"Error processing chunk {i}: {e}")
@@ -991,6 +999,7 @@ async def simple_file_to_file_transformer(jobstepid):
 
 def cleanheader_and_trailer(file_step_info):
     ingestion_file =  file_step_info.FULLFILENAME
+    check_and_delete_file(f"{file_step_info.FULLFILENAME}.cleaned")
     cleaned_file_used=False
     if 'headers_in_order' in file_step_info and file_step_info.headers_in_order:
         remove_header_command = f"sed '1,{len(file_step_info.headers_in_order)}d' {file_step_info.FULLFILENAME} > {file_step_info.FULLFILENAME}.cleaned"

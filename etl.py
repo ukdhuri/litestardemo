@@ -48,7 +48,7 @@ def create_step_dicts(data):
 
 @click.command()
 @click.option('--env', default='dev', help='Environment to run the job in')
-@click.option('--job_id', default='third_job', help='Name of the job to run')
+@click.option('--job_id', default='fifth_job', help='Name of the job to run')
 #@click.option('--override', default=["step5.output_file.quote_char='🤣'","step5.validation=False"], multiple=True, help='Override parameters in the format module_name.variable_name=value')
 @click.option('--override', default=[], multiple=True, help='Override parameters in the format module_name.variable_name=value')
 async def main(env, job_id, override):
@@ -162,7 +162,6 @@ async def main(env, job_id, override):
             module = importlib.import_module(f"lib.{module_name}")
         else:
             module = importlib.import_module(f"lib.etl_service")
-        
 
         caller_function = getattr(module, function_name)
         await caller_function(context_dict.job_index_dict[job_step_index])
