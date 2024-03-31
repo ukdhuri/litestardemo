@@ -1,5 +1,6 @@
 import csv
 import glob
+import math
 import shutil
 from typing import Union
 from adbc_driver_manager import IntegrityError
@@ -391,6 +392,54 @@ async def  cleanup_files(jobstepid):
     for file in files:
         generate_complete_filename(file)
         check_and_delete_file(file.FULLFILENAME)
+
+
+
+@logger.catch(reraise=True)
+async def  render_file(jobstepid):
+    step_info = context_dict.job_steps_dict[jobstepid]
+    generate_complete_filename(step_info.filei)
+    generate_complete_filename(step_info.fileo)
+    await preprocess_input_file(step_info.filei)
+    file_step_info_i, delimiter_i, quote_char_i, escape_char_i, widths_i, alignments_i, quoting_i, column_list_i = initilize_common_file_properties(step_info,'filei')
+    #file_step_info_o, delimiter_o, quote_char_o, escape_char_o, widths_o, alignments_o, quoting_o, column_list_o = initilize_common_file_properties(step_info,'fileo')
+    ingestion_file = cleanheader_and_trailer(file_step_info_i)
+    chunksize = get_chunksize(step_info,'filei')
+    if file_step_info_i.type == 'delimitedfile':
+        df = pd.read_csv(f"{ingestion_file}", delimiter=delimiter_i, quotechar=quote_char_i,quoting=quoting_i, escapechar=escape_char_i , names=column_list_i, header=None)
+    elif file_step_info_i.type == 'fixedwidthfile':
+        widths = [int(width) for width in string_to_list(widths_i)]
+        df = pd.read_fwf(f"{ingestion_file}", widths=widths, names=column_list_i, chunksize=chunksize, header=None, alignments=alignments_i)
+    step_info.PROCESSEDROWCNT = len(df)
+
+    envtmp = Environment(loader=FileSystemLoader('templates'))
+    template = envtmp.get_template(step_info.reneder_template)
+    with open(step_info.fileo.FULLFILENAME, 'w') as f:
+        output  = template.render(headers=list(df.columns),rows=df.values.tolist())
+        f.write(output)
+
+   
+    # Calculate the number of pages
+    num_pages = math.ceil(len(df) / step_info.rows_per_page)
+
+    # # Divide the DataFrame into chunks and write each chunk to the text file
+    # with open(step_info.fileo.FULLFILENAME, 'w') as f:
+    #     for page_num in range(num_pages):
+    #         start = page_num * step_info.rows_per_page
+    #         end = start + step_info.rows_per_page
+    #         chunk = df[start:end]
+    #         output = template.render(page_num=page_num+1, headers=chunk.columns.tolist(), rows=chunk.values.tolist())
+    #         f.write(output)
+
+
+#data = df.to_dict('records')
+#rendered_template = template.render(headers=list(df.columns), rows=data)
+# {% for header in headers %}{{ header }}\t{% endfor %}\n
+# {% for row in rows %}{% for header in headers %}{{ row[header] }}\t{% endfor %}\n{% endfor %}
+# {% for header in headers %}{{ header }}\t{% endfor %}\n
+# {% for row in rows %}{% for cell in row %}{{ cell }}\t{% endfor %}\n{% endfor %}
+
+
 
 
 @logger.catch(reraise=True)
@@ -823,11 +872,7 @@ async def panda_file_processor(jobstepid=None):
           
     else:
         pandacon = get_panda_con(f'{step_info.table.database}_{step_info.table.env}')
-        chunksize = 12000
-        if 'chunksize' in context_dict.job_cfg and context_dict.job_cfg.chunksize:
-            chunksize = context_dict.job_cfg.chunksize
-        if 'chunksize' in step_info.file and step_info.file.chunksize:
-            chunksize = step_info.file.chunksize
+        chunksize = get_chunksize(step_info,'file')
         set_local_dbvarialbes(step_info.table,jobstepid)
         step_info.PROCESSEDROWCNT = 0
         # Read the CSV file in chunks
@@ -901,6 +946,14 @@ async def panda_file_processor(jobstepid=None):
             """
             connection.execute(text(idenity_insert_off_command))
         check_and_delete_file(f"{filename}.cleaned")
+
+def get_chunksize(step_info,key):
+    chunksize = 12000
+    if 'chunksize' in context_dict.job_cfg and context_dict.job_cfg.chunksize:
+        chunksize = context_dict.job_cfg.chunksize
+    if 'chunksize' in step_info[key] and step_info[key].chunksize:
+        chunksize = step_info[key].chunksize
+    return chunksize
         
 
 async def simple_file_to_file_transformer(jobstepid):

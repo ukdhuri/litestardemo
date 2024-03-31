@@ -195,17 +195,44 @@ job_steps:
           trailers_in_order:
             - 'RECORDCOUNT=¶step_apitest2→PROCESSEDROWCNT•int•08d¶'
             - 'LINECOUNT=¶step_apitest2→file→EXPECTEDFILELINECOUNT•int•08d¶'
-  - cleanup_step:
-      type: cleanup_files
-      path: "/home/deck/outbound"
-      prefix: "UserFile_¶BDATE•date•YYYYMMDD¶"
-      files:
-        - path: "/home/deck/outbound"
-          prefix: "ApiToFile_¶BDATE•date•YYYYMMDD¶"
-          ext: ".csv"
-        - path: "/home/deck/outbound"
-          prefix: "ApiToFile2_¶BDATE•date•YYYYMMDD¶"
-          ext: ".csv"
+  - step_render_file:
+      type: render_file
+      reneder_template: 'print_file_sample.txt'
+      rows_per_page: 10
+      filei:
+        validate: True
+        dataframe_columns: 'userId,id,title,body'
+        type: delimitedfile
+        header_delimiter: ","
+        delimiter: "," #optional default is ','
+        quote_char : '"'  #optional default is empty
+        escape_char: '\'  #optional default is \, not used in bcp as of now, used for pandas
+        path: "/home/deck/outbound"
+        prefix: "ApiToFile_¶BDATE•date•YYYYMMDD¶"
+        ext: ".csv"
+        headers_in_order:
+          - "FILENAME=¶step_render_file→filei→FILENAME•str• <6¶ BATCH_DATE=¶BDATE•date•YYYY-MM-DD¶  CREATED_AT=🧹🧹🧹🧹🧹🧹🧹🧹🧹🧹🧹🧹🧹🧹🧹🧹🧹🧹"
+          - 'userId,id,title,body'
+          - 'yyyyyyyyyyyy'
+        trailers_in_order:
+          - 'RECORDCOUNT=¶step_render_file→filei→EXPECTEDDATALINECOUNT•int•08d¶'
+          - 'LINECOUNT=¶step_render_file→filei→FILELINECOUNT•int•08d¶'
+      fileo:
+        dataframe_columns: 'userId,id,title,body'
+        path: "/home/deck/outbound"
+        prefix: "RenderFile_¶BDATE•date•YYYYMMDD¶"
+        ext: ".csv"
+  # - step_cleanup:
+  #     type: cleanup_files
+  #     path: "/home/deck/outbound"
+  #     prefix: "UserFile_¶BDATE•date•YYYYMMDD¶"
+  #     files:
+  #       - path: "/home/deck/outbound"
+  #         prefix: "ApiToFile_¶BDATE•date•YYYYMMDD¶"
+  #         ext: ".csv"
+  #       - path: "/home/deck/outbound"
+  #         prefix: "ApiToFile2_¶BDATE•date•YYYYMMDD¶"
+  #         ext: ".csv"
 
 
 #     CREATE TABLE Placeholder (

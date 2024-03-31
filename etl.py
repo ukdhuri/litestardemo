@@ -151,31 +151,27 @@ async def main(env, job_id, override):
     #ic(context_dict.job_steps_dict.keys())
     for job_step_index in range(len(context_dict.job_cfg.job_steps)):
         start_time = time.perf_counter()
-        logger.info(f"Now processing job step {job_step_index} with step name {context_dict.job_index_dict[job_step_index]}")
+        logger.info(f"Job Started with {job_step_index=} with step name {context_dict.job_index_dict[job_step_index]}")
         step_info = context_dict.job_steps_dict[context_dict.job_index_dict[job_step_index]]
         logger.info(f"Job Step type is {step_info['type']}")
         #table_bcp_extractor_runner(context_dict.job_index_dict[job_step_index])
         function_name = step_info['type']
-
         if '.' in function_name:
             module_name, function_name = function_name.split('.')
             module = importlib.import_module(f"lib.{module_name}")
         else:
             module = importlib.import_module(f"lib.etl_service")
-
+        logger.info(f"Calling function {function_name} from module {module}")
         caller_function = getattr(module, function_name)
-        await caller_function(context_dict.job_index_dict[job_step_index])
-        end_time = time.perf_counter()
-        elapsed_time = end_time - start_time
-        logger.info(f"Step {job_step_index} completed in {elapsed_time} seconds")
-
-
-
-
-
-
-  
-
+        try:
+            await caller_function(context_dict.job_index_dict[job_step_index])
+            end_time = time.perf_counter()
+            elapsed_time = end_time - start_time
+            logger.info(f"Step {job_step_index} completed in {elapsed_time} seconds")
+        except Exception as e:
+            end_time = time.perf_counter()
+            elapsed_time = end_time - start_time
+            logger.error(f"Error occurred in step {job_step_index}: {str(e)} in {elapsed_time} seconds")
     #cfg.remote.vendor.connection_string = cfg.remote['vendor'].connection_string.replace("REPLACEME", decrpyt_password(cfg.remote.password_command))
 
 if __name__ == "__main__":
@@ -183,7 +179,3 @@ if __name__ == "__main__":
     main()
 
 
-#todo :- last char in file
-#fixe lenght inside bcp
-# get table info using template
-# transform file
