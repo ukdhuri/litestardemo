@@ -157,6 +157,31 @@ def set_local_dbvarialbes(dbobject,jobstepid):
     if dbobject.local_context_dict.dialect == 'tsql':
         dbobject.local_context_dict.dbschema = 'dbo'
 
+
+def set_local_apivariables(apiobject,jobstepid):
+    step_info = context_dict.job_steps_dict[jobstepid]
+    if not 'env' in apiobject:
+        apiobject.env = step_info.env
+    if 'local_context_dict' not in apiobject:
+        apiobject.local_context_dict = benedict()
+    apikey = f'{apiobject.name}_{apiobject.env}'
+    apiobject.local_context_dict.api_url = context_dict.app_cfg[f'{apikey}'].api_url
+
+
+
+    # dbobject.local_context_dict.dbinstance = context_dict.app_cfg[f'{dbkey}'].dbinstance
+    # dbobject.local_context_dict.dbport = context_dict.app_cfg[f'{dbkey}'].dbport
+    # dbobject.local_context_dict.dbuser = context_dict.app_cfg[f'{dbkey}'].dbuser
+    # dbobject.local_context_dict.dbpassword = context_dict[f'{dbkey}_dbpassword']
+    # dbobject.local_context_dict.dialect = context_dict.app_cfg[f'{dbkey}'].vendor.dialect
+    # dbobject.local_context_dict.basedatabase = context_dict.app_cfg[f'{dbkey}'].basedatabase
+    # if dbobject.local_context_dict.dialect == 'tsql':
+    #     dbobject.local_context_dict.dbschema = 'dbo'
+
+
+
+
+
 #def run_bcp(dbid, env, tablename, filename, bcp_direction, first_row=None, delimiter='\",\"', last_row=None, format_file=None, jobstepid='xxxx'):
 def run_bcp(jobstepid=None):
     step_info = context_dict.job_steps_dict[jobstepid]
@@ -358,7 +383,16 @@ async def  sql_bcp_extractor(jobstepid):
     step_info = context_dict.job_steps_dict[jobstepid]
     check_mandatory_proeperties(step_info,MANDATORY_SQL_BCP_EXTRACTOR_PROPERTIES)
     await bcp_extractor_runner(jobstepid)
-   
+
+
+@logger.catch(reraise=True)
+async def  cleanup_files(jobstepid):
+    files = context_dict.job_steps_dict[jobstepid].files
+    for file in files:
+        generate_complete_filename(file)
+        check_and_delete_file(file.FULLFILENAME)
+
+
 @logger.catch(reraise=True)
 async def  table_bcp_extractor(jobstepid):
     step_info = context_dict.job_steps_dict[jobstepid]
@@ -736,9 +770,6 @@ async def panda_file_processor(jobstepid=None):
             widths = string_to_list(file_step_info.widths)
             alignments = string_to_list(file_step_info.alignments)
             
-        
-
-
     #Unused    
     if 'first_row' in file_step_info:
         first_row = file_step_info.first_row
@@ -767,9 +798,6 @@ async def panda_file_processor(jobstepid=None):
             print(remove_trailer_command)
             ingestion_file =  f"{filename}.cleaned"
             run_subprocess_command(remove_trailer_command)
-    
-
-    
     
     if panda_direction == 'out':
         pandacon = get_panda_con(f'{step_info.sqlfile.database}_{step_info.sqlfile.env}')
@@ -881,63 +909,9 @@ async def simple_file_to_file_transformer(jobstepid):
     generate_complete_filename(step_info.filei)
     generate_complete_filename(step_info.fileo)
     await preprocess_input_file(step_info.filei)
-    
-    file_step_info_i = step_info.filei
-    delimiter_i = None
-    quote_char_i = None
-    escape_char_i = None
-    widths_i = None
-    alignments_i = None
-    if file_step_info_i.type == 'delimitedfile':
-        if 'delimiter' in file_step_info_i:
-            delimiter_i = file_step_info_i.delimiter
-        else:
-            delimiter_i = ','
-        quoting_i = csv.QUOTE_NONE
-        if 'quote_char' in file_step_info_i:
-            quote_char_i = file_step_info_i.quote_char
-            quoting_i = csv.QUOTE_ALL
-        # else:
-        #     quote_char = ''
-        if 'escape_char' in file_step_info_i:
-            escape_char_i = file_step_info_i.escape_char
-        else:
-            escape_char_i = '\\'
-    elif file_step_info_i.type == 'fixedwidthfile':
-        if 'widhts' not in file_step_info_i and 'alignments' not in file_step_info_i and not file_step_info_i.widths and not file_step_info_i.alignments:
-            raise ValueError("widhts and alignments not provided in file")
-        else:
-            widths_i = string_to_list(file_step_info_i.widths)
-            alignments_i = string_to_list(file_step_info_i.alignments)
-
-    file_step_info_o = step_info.fileo
-    delimiter_o = None
-    quote_char_o = None
-    escape_char_o = None
-    widths_o = None
-    alignments_o = None
-    if file_step_info_o.type == 'delimitedfile':
-        if 'delimiter' in file_step_info_o:
-            delimiter_o= file_step_info_o.delimiter
-        else:
-            delimiter_o= ','
-        quoting_o = csv.QUOTE_NONE
-        if 'quote_char' in file_step_info_o:
-            quote_char_o= file_step_info_o.quote_char
-            quoting_o = csv.QUOTE_ALL
-        # else:
-        #     quote_char = ''
-        if 'escape_char' in file_step_info_o:
-            escape_char_o= file_step_info_o.escape_char
-        else:
-            escape_char_o= '\\'
-    elif file_step_info_o.type == 'fixedwidthfile':
-        if 'widhts' not in file_step_info_o and 'alignments' not in file_step_info_o and not file_step_info_o.widths and not file_step_info_o.alignments:
-            raise ValueError("widhts and alignments not provided in file")
-        else:
-            widths_o= string_to_list(file_step_info_o.widths)
-            alignments_o= string_to_list(file_step_info_o.alignments)   
-
+  
+    file_step_info_i, delimiter_i, quote_char_i, escape_char_i, widths_i, alignments_i, quoting_i, column_list_i = initilize_common_file_properties(step_info,'filei')   
+    file_step_info_o, delimiter_o, quote_char_o, escape_char_o, widths_o, alignments_o, quoting_o, column_list_o = initilize_common_file_properties(step_info,'fileo')
 
     ingestion_file = cleanheader_and_trailer(file_step_info_i)
     ic(ingestion_file)
@@ -945,16 +919,6 @@ async def simple_file_to_file_transformer(jobstepid):
     if 'chunksize' in context_dict.job_cfg and context_dict.job_cfg.chunksize:
         chunksize = context_dict.job_cfg.chunksize
 
-
-    if 'dataframe_columns' in step_info.filei and step_info.filei.dataframe_columns:
-        column_list_i = string_to_list(step_info.filei.dataframe_columns)
-    else:
-        raise ValueError("dataframe_columns not provided in filei")
-    
-    if 'dataframe_columns' in step_info.fileo and step_info.fileo.dataframe_columns:
-        column_list_o = string_to_list(step_info.filei.dataframe_columns)
-    else:
-        raise ValueError("dataframe_columns not provided in fileo")
     
     output_file =  file_step_info_o.FULLFILENAME
     step_info.PROCESSEDROWCNT = 0
@@ -966,7 +930,6 @@ async def simple_file_to_file_transformer(jobstepid):
         with open(output_file, 'a') as outfile:
             outfile.write('\n'.join(formatted_rows))
         step_info.PROCESSEDROWCNT = len(df)
-
         # for i, chunk in enumerate(pd.read_csv(f"{ingestion_file}", delimiter=delimiter_i, quotechar=quote_char_i,quoting=quoting, escapechar=escape_char_i , names=column_list_i, chunksize=chunksize, header=None)):
         #     try:
         #         formatted_rows = chunk.apply(format_row, axis=1, args=(widths,alignments_o,column_list_o))
@@ -993,10 +956,6 @@ async def simple_file_to_file_transformer(jobstepid):
         check_and_delete_file(ingestion_file)
     
 
-
-
-
-
 def cleanheader_and_trailer(file_step_info):
     ingestion_file =  file_step_info.FULLFILENAME
     check_and_delete_file(f"{file_step_info.FULLFILENAME}.cleaned")
@@ -1020,3 +979,66 @@ def cleanheader_and_trailer(file_step_info):
         ingestion_file =  f"{file_step_info.FULLFILENAME}.cleaned"
         run_subprocess_command(remove_trailer_command)
     return ingestion_file
+
+
+
+def initilize_for_duckdb(delimiter_x, quote_char_x, escape_char_x):
+    if delimiter_x:
+        sep_x = f", sep = '{delimiter_x}'"
+    else:
+        sep_x = ""
+    if quote_char_x:
+        quote_x = f", quote = '{quote_char_x}'"
+    else:
+        quote_x = ""
+    if escape_char_x:
+        escape_x = f", escape = '{escape_char_x}'"
+    else:
+        escape_x = ""
+    return sep_x,quote_x,escape_x
+
+def initilize_common_file_properties(step_info,key):
+    file_step_info_x = step_info[key]
+    delimiter_x = None
+    quote_char_x = None
+    escape_char_x = None
+    widths_x = None
+    quoting_x = None
+    alignments_x = None
+    if file_step_info_x.type == 'delimitedfile':
+        if 'delimiter' in file_step_info_x:
+            delimiter_x = file_step_info_x.delimiter
+        else:
+            delimiter_x = ','
+        quoting_x = csv.QUOTE_NONE
+        if 'quote_char' in file_step_info_x:
+            quote_char_x = file_step_info_x.quote_char
+            quoting_x = csv.QUOTE_ALL
+        if 'escape_char' in file_step_info_x:
+            escape_char_x = file_step_info_x.escape_char
+        else:
+            escape_char_x = '\\'
+    elif file_step_info_x.type == 'fixedwidthfile':
+        if 'widhts' not in file_step_info_x and 'alignments' not in file_step_info_x and not file_step_info_x.widths and not file_step_info_x.alignments:
+            raise ValueError("widhts and alignments not provided in file")
+        else:
+            widths_x = string_to_list(file_step_info_x.widths)
+            alignments_x = string_to_list(file_step_info_x.alignments)
+    if 'dataframe_columns' in step_info[key] and step_info[key].dataframe_columns:
+        column_list_x = string_to_list(step_info[key].dataframe_columns)
+    else:
+        raise ValueError(f"dataframe_columns not provided in {key}")
+    return file_step_info_x,delimiter_x,quote_char_x,escape_char_x,widths_x,alignments_x,quoting_x,column_list_x
+
+
+
+
+def panda_file_writer(step_info, df, file_step_info_o, delimiter_o, quote_char_o, escape_char_o, widths_o, alignments_o, quoting_o, column_list_o):
+    check_and_delete_file(file_step_info_o.FULLFILENAME)
+    if file_step_info_o.type == 'delimitedfile':
+        df.to_csv(file_step_info_o.FULLFILENAME , index=False, sep=delimiter_o,quoting=quoting_o, quotechar=quote_char_o, escapechar=escape_char_o, header=False)
+    elif file_step_info_o.type == 'fixedwidthfile':
+        formatted_rows = df.astype(str).apply(format_row, axis=1, args=(widths_o,alignments_o,column_list_o))
+        with open(file_step_info_o.FULLFILENAME, 'w') as outfile:
+            outfile.write('\n'.join(formatted_rows))
+    step_info.PROCESSEDROWCNT = len(df)

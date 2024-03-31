@@ -91,62 +91,126 @@ job_steps:
   #         - 'RECORDCOUNT=¶step_order→PROCESSEDROWCNT•int•08d¶'
   #         - 'LINECOUNT=¶step_order→file→EXPECTEDFILELINECOUNT•int•08d¶'
   
-  - step_combo:
-      type: etl_custom_sample.trasform_files_sample
-      filei1:
-        validate: True
-        dataframe_columns: 'id,user_id,batch_id,start_time,end_time'
-        type: delimitedfile
-        header_delimiter: ","
-        #header_quote_char: '"'  #optional default is empty
-        delimiter: "," #optional default is ','
-        #quote_char : ','  #optional default is empty
-        escape_char: '\'  #optional default is \, not used in bcp as of now, used for pandas
-        path: "/home/deck/outbound"
-        prefix: "OrderFile_¶BDATE•date•YYYYMMDD¶"
-        ext: ".csv"
-        headers_in_order:
-          - "FILENAME=¶step_combo→filei1→FILENAME•str• <6¶ BATCH_DATE=¶BDATE•date•YYYY-MM-DD¶  CREATED_AT=🧹🧹🧹🧹🧹🧹🧹🧹🧹🧹🧹🧹🧹🧹🧹🧹🧹🧹"
-          - 'id,user_id,batch_id,start_time,end_time'
-          - 'yyyyyyyyyyyy'
-        trailers_in_order:
-          - 'RECORDCOUNT=¶step_combo→filei1→EXPECTEDDATALINECOUNT•int•08d¶'
-          - 'LINECOUNT=¶step_combo→filei1→FILELINECOUNT•int•08d¶'
-      filei2:
-        validate: True
-        dataframe_columns: 'id,name,email,phone_number,date_of_birth'
-        type: delimitedfile
-        header_delimiter: ","
-        #header_quote_char: '"'  #optional default is empty
-        delimiter: "," #optional default is ','
-        #quote_char : ','  #optional default is empty
-        escape_char: '\'  #optional default is \, not used in bcp as of now, used for pandas
-        path: "/home/deck/outbound"
-        prefix: "UserFile_¶BDATE•date•YYYYMMDD¶"
-        ext: ".csv"
-        headers_in_order:
-          - "FILENAME=¶step_combo→filei2→FILENAME•str• <6¶ BATCH_DATE=¶BDATE•date•YYYY-MM-DD¶  CREATED_AT=🧹🧹🧹🧹🧹🧹🧹🧹🧹🧹🧹🧹🧹🧹🧹🧹🧹🧹"
-          - 'id,name,email,phone_number,date_of_birth'
-          - 'yyyyyyyyyyyy'
-        trailers_in_order:
-          - 'RECORDCOUNT=¶step_combo→filei2→EXPECTEDDATALINECOUNT•int•08d¶'
-      fileo:
-        validate: True
-        dataframe_columns: 'order_id,user_name,email,batch_id,start_time'
-        type: fixedwidthfile
-        header_delimiter: ","
-        widths : '6,20,30,5,30'
-        alignments : '<,<,<,<,<'
-        #header_quote_char: '"'  #optional default is empty
-        delimiter: "|" #optional default is ','
-        quote_char : '"'  #optional default is empty
-        escape_char: '\'  #optional default is \, not used in bcp as of now, used for pandas
-        path: "/home/deck/outbound"
-        prefix: "CombinedFile_¶BDATE•date•YYYYMMDD¶"
-        ext: ".csv"
-        headers_in_order:
-          - "FILENAME=¶step_combo→fileo→FILENAME•str• <6¶ BATCH_DATE=¶BDATE•date•YYYY-MM-DD¶  CREATED_AT=¶CTIME•date•YYYY-MM-DDHH:mm:ss¶"
-          - 'order_id,user_name,email,batch_id,start_time'
-          - 'yyyyyyyyyyyy'
-        trailers_in_order:
-          - 'RECORDCOUNT=¶step_combo→PROCESSEDROWCNT•int•08d¶'
+  # - step_combo:
+  #     type: etl_custom_sample.trasform_files_sample
+  #     filei1:
+  #       validate: True
+  #       dataframe_columns: 'id,user_id,batch_id,start_time,end_time'
+  #       type: delimitedfile
+  #       header_delimiter: ","
+  #       #header_quote_char: '"'  #optional default is empty
+  #       delimiter: "," #optional default is ','
+  #       #quote_char : ','  #optional default is empty
+  #       escape_char: '\'  #optional default is \, not used in bcp as of now, used for pandas
+  #       path: "/home/deck/outbound"
+  #       prefix: "OrderFile_¶BDATE•date•YYYYMMDD¶"
+  #       ext: ".csv"
+  #       headers_in_order:
+  #         - "FILENAME=¶step_combo→filei1→FILENAME•str• <6¶ BATCH_DATE=¶BDATE•date•YYYY-MM-DD¶  CREATED_AT=🧹🧹🧹🧹🧹🧹🧹🧹🧹🧹🧹🧹🧹🧹🧹🧹🧹🧹"
+  #         - 'id,user_id,batch_id,start_time,end_time'
+  #         - 'yyyyyyyyyyyy'
+  #       trailers_in_order:
+  #         - 'RECORDCOUNT=¶step_combo→filei1→EXPECTEDDATALINECOUNT•int•08d¶'
+  #         - 'LINECOUNT=¶step_combo→filei1→FILELINECOUNT•int•08d¶'
+  #     filei2:
+  #       validate: True
+  #       dataframe_columns: 'id,name,email,phone_number,date_of_birth'
+  #       type: delimitedfile
+  #       header_delimiter: ","
+  #       #header_quote_char: '"'  #optional default is empty
+  #       delimiter: "," #optional default is ','
+  #       #quote_char : ','  #optional default is empty
+  #       escape_char: '\'  #optional default is \, not used in bcp as of now, used for pandas
+  #       path: "/home/deck/outbound"
+  #       prefix: "UserFile_¶BDATE•date•YYYYMMDD¶"
+  #       ext: ".csv"
+  #       headers_in_order:
+  #         - "FILENAME=¶step_combo→filei2→FILENAME•str• <6¶ BATCH_DATE=¶BDATE•date•YYYY-MM-DD¶  CREATED_AT=🧹🧹🧹🧹🧹🧹🧹🧹🧹🧹🧹🧹🧹🧹🧹🧹🧹🧹"
+  #         - 'id,name,email,phone_number,date_of_birth'
+  #         - 'yyyyyyyyyyyy'
+  #       trailers_in_order:
+  #         - 'RECORDCOUNT=¶step_combo→filei2→EXPECTEDDATALINECOUNT•int•08d¶'
+  #     fileo:
+  #       validate: True
+  #       dataframe_columns: 'order_id,user_name,email,batch_id,start_time'
+  #       type: fixedwidthfile
+  #       # header_delimiter: ","
+  #       widths : '6,20,30,5,30'
+  #       alignments : '<,<,<,<,<'
+  #       #header_quote_char: '"'  #optional default is empty
+  #       # delimiter: "|" #optional default is ','
+  #       # quote_char : '"'  #optional default is empty
+  #       # escape_char: '\'  #optional default is \, not used in bcp as of now, used for pandas
+  #       path: "/home/deck/outbound"
+  #       prefix: "CombinedFile_¶BDATE•date•YYYYMMDD¶"
+  #       ext: ".csv"
+  #       headers_in_order:
+  #         - "FILENAME=¶step_combo→fileo→FILENAME•str• <6¶ BATCH_DATE=¶BDATE•date•YYYY-MM-DD¶  CREATED_AT=¶CTIME•date•YYYY-MM-DDHH:mm:ss¶"
+  #         - 'order_id,user_name,email,batch_id,start_time'
+  #         - 'yyyyyyyyyyyy'
+  #       trailers_in_order:
+  #         - 'RECORDCOUNT=¶step_combo→PROCESSEDROWCNT•int•08d¶'
+  - step_apitest:
+        type: etl_custom_sample.api_to_file
+        api:
+          name: hold_place
+        file:
+          validate: True
+          dataframe_columns: 'userId,id,title,body'
+          type: delimitedfile
+          header_delimiter: ","
+          #header_quote_char: '"'  #optional default is empty
+          delimiter: "," #optional default is ','
+          quote_char : '"'  #optional default is empty
+          escape_char: '\'  #optional default is \, not used in bcp as of now, used for pandas
+          path: "/home/deck/outbound"
+          prefix: "ApiToFile_¶BDATE•date•YYYYMMDD¶"
+          ext: ".csv"
+          headers_in_order:
+            - "FILENAME=¶step_apitest→file→FILENAME•str• <6¶ BATCH_DATE=¶BDATE•date•YYYY-MM-DD¶  CREATED_AT=¶CTIME•date•YYYY-MM-DDHH:mm:ss¶"
+            - 'userId,id,title,body'
+            - 'yyyyyyyyyyyy'
+          trailers_in_order:
+            - 'RECORDCOUNT=¶step_apitest→PROCESSEDROWCNT•int•08d¶'
+            - 'LINECOUNT=¶step_apitest→file→EXPECTEDFILELINECOUNT•int•08d¶'
+  - step_apitest2:
+        type: etl_custom_sample.api_to_file
+        api:
+          name: hold_place
+        file:
+          validate: True
+          dataframe_columns: 'userId,id,title,body'
+          type: fixedwidthfile
+          header_delimiter: ","
+          #header_quote_char: '"'  #optional default is empty
+          widths : '10,10,50,100'
+          alignments : '<,<,<,<'
+          path: "/home/deck/outbound"
+          prefix: "ApiToFile2_¶BDATE•date•YYYYMMDD¶"
+          ext: ".csv"
+          headers_in_order:
+            - "FILENAME=¶step_apitest→file→FILENAME•str• <6¶ BATCH_DATE=¶BDATE•date•YYYY-MM-DD¶  CREATED_AT=¶CTIME•date•YYYY-MM-DDHH:mm:ss¶"
+            - 'userId,id,title,body'
+            - 'yyyyyyyyyyyy'
+          trailers_in_order:
+            - 'RECORDCOUNT=¶step_apitest2→PROCESSEDROWCNT•int•08d¶'
+            - 'LINECOUNT=¶step_apitest2→file→EXPECTEDFILELINECOUNT•int•08d¶'
+  - cleanup_step:
+      type: cleanup_files
+      path: "/home/deck/outbound"
+      prefix: "UserFile_¶BDATE•date•YYYYMMDD¶"
+      files:
+        - path: "/home/deck/outbound"
+          prefix: "ApiToFile_¶BDATE•date•YYYYMMDD¶"
+          ext: ".csv"
+        - path: "/home/deck/outbound"
+          prefix: "ApiToFile2_¶BDATE•date•YYYYMMDD¶"
+          ext: ".csv"
+
+
+#     CREATE TABLE Placeholder (
+#     userId INT,
+#     id INT PRIMARY KEY,
+#     title VARCHAR(255),
+#     body TEXT
+# );

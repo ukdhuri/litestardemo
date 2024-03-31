@@ -1,0 +1,4 @@
+# @package api
+api_port: 8080
+api_url: https://jsonplaceholder.typicode.com/posts
+api_user: user
