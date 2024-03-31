@@ -1,0 +1,12 @@
+{%- set page_number = 1 -%}
+{{ "{:*>100}".format('page_number='+(page_number|string)) }}{{ '\n' }}
+{%- for header in headers -%}{{ "{:<25}".format(header) }}{{ '' }}{%- endfor -%}{{ '\n' }}
+{{ "{:->100}".format('') }}{{ '\n' }}
+{%- for row in rows -%}
+{%- set page_number = (loop.index // 10) + 1 -%}
+{%- if loop.index % 10 == 0 -%}
+{{ "{:*>100}".format('page_number='+(page_number|string)) }}{{ '\n' }}
+{%- for header in headers -%}{{ "{:<25}".format(header) }}{{ '' }}{%- endfor -%}{{ '\n' }}{{ "{:->100}".format('') }}{{ '\n' }}
+{%- endif -%}
+{%- for cell in row -%}{{ "{:<25}".format((cell|string)[:20]) }}{{ '' }}{%- endfor -%}{{ '\n' }}
+{%- endfor -%}
