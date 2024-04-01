@@ -108,11 +108,6 @@ async def execute_query_fornative(connection_string, sql_query):
             raise exc from exc
 
 
-
-
-
-
-
 def is_special_character(char):
     """
     Checks if a character is a special character used in Perl expressions.
@@ -123,7 +118,6 @@ def is_special_character(char):
     """
     special_characters = r'\\$@&.*?()[]{}|+^'
     return char in special_characters
-
 
 def process_connecton_string(dbobject,jobstepid):
     step_info = context_dict.job_steps_dict[jobstepid]
@@ -158,7 +152,6 @@ def set_local_dbvarialbes(dbobject,jobstepid):
     if dbobject.local_context_dict.dialect == 'tsql':
         dbobject.local_context_dict.dbschema = 'dbo'
 
-
 def set_local_apivariables(apiobject,jobstepid):
     step_info = context_dict.job_steps_dict[jobstepid]
     if not 'env' in apiobject:
@@ -167,9 +160,6 @@ def set_local_apivariables(apiobject,jobstepid):
         apiobject.local_context_dict = benedict()
     apikey = f'{apiobject.name}_{apiobject.env}'
     apiobject.local_context_dict.api_url = context_dict.app_cfg[f'{apikey}'].api_url
-
-
-
     # dbobject.local_context_dict.dbinstance = context_dict.app_cfg[f'{dbkey}'].dbinstance
     # dbobject.local_context_dict.dbport = context_dict.app_cfg[f'{dbkey}'].dbport
     # dbobject.local_context_dict.dbuser = context_dict.app_cfg[f'{dbkey}'].dbuser
@@ -178,10 +168,6 @@ def set_local_apivariables(apiobject,jobstepid):
     # dbobject.local_context_dict.basedatabase = context_dict.app_cfg[f'{dbkey}'].basedatabase
     # if dbobject.local_context_dict.dialect == 'tsql':
     #     dbobject.local_context_dict.dbschema = 'dbo'
-
-
-
-
 
 #def run_bcp(dbid, env, tablename, filename, bcp_direction, first_row=None, delimiter='\",\"', last_row=None, format_file=None, jobstepid='xxxx'):
 def run_bcp(jobstepid=None):
@@ -193,7 +179,6 @@ def run_bcp(jobstepid=None):
         bcp_direction = 'in'
     file_step_info = context_dict.job_steps_dict[jobstepid].file
     filename = file_step_info.FULLFILENAME
-
     first_row = None
     last_row = None
     delimiter = None
@@ -1095,3 +1080,21 @@ def panda_file_writer(step_info, df, file_step_info_o, delimiter_o, quote_char_o
         with open(file_step_info_o.FULLFILENAME, 'w') as outfile:
             outfile.write('\n'.join(formatted_rows))
     step_info.PROCESSEDROWCNT = len(df)
+
+
+def panda_file_reader(step_info, file_step_info_x, delimiter_x, quote_char_x, escape_char_x, widths_x, alignments_x, quoting_x, column_list_x, usechunksize=False):
+    ingestion_file = cleanheader_and_trailer(file_step_info_x)
+    if file_step_info_x.type == 'delimitedfile':
+        if usechunksize:
+            chunksize = step_info.chunksize
+            df = pd.read_csv(f"{ingestion_file}", delimiter=delimiter_x, quotechar=quote_char_x,quoting=quoting_x, escapechar=escape_char_x , names=column_list_x, chunksize=chunksize, header=None, stepkey="")
+        else:
+            df = pd.read_csv(f"{ingestion_file}", delimiter=delimiter_x, quotechar=quote_char_x,quoting=quoting_x, escapechar=escape_char_x , names=column_list_x, header=None)
+        df = pd.read_csv(f"{ingestion_file}", delimiter=delimiter_x, quotechar=quote_char_x,quoting=quoting_x, escapechar=escape_char_x , names=column_list_x, header=None)
+    elif file_step_info_x.type == 'fixedwidthfile':
+        if usechunksize:
+            chunksize = step_info.chunksize
+            df = pd.read_fwf(f"{ingestion_file}", widths=widths_x, names=column_list_x, chunksize=chunksize, header=None, alignments=alignments_x)
+        else:
+            df = pd.read_fwf(f"{ingestion_file}", widths=widths_x, names=column_list_x, header=None, alignments=alignments_x)
+    return df
