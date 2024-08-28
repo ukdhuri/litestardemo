@@ -3,33 +3,35 @@
 
 name: Python application
 
+
+
 on:
   workflow_dispatch:
     inputs:
-      logLevel:
-        description: 'Log level'
+      text_input:
+        description: 'Enter a text value'
         required: true
-        default: 'warning'
-        type: choice
-        options:
-        - info
-        - warning
-        - debug
-      tags:
-        description: 'Test scenario tags'
+        type: text
+      boolean_input:
+        description: 'Toggle this boolean input'
         required: false
         type: boolean
-      environment:
-        description: 'Environment to run tests against'
-        type: environment
+      choice_input:
+        description: 'Select one option'
         required: true
- 
-permissions:
-  contents: read
+        type: choice
+        options:
+          - Option1
+          - Option2
+          - Option3
 
 jobs:
-  build:
+  show_inputs:
     runs-on: ubuntu-latest
     steps:
-      - name: Print hello world
-        run: echo "Hello world!"
+      - name: Print Inputs
+        run: |
+          echo "Text Input: ${{ github.event.inputs.text_input }}"
+          echo "Boolean Input: ${{ github.event.inputs.boolean_input }}"
+          echo "Choice Selected: ${{ github.event.inputs.choice_input }}"
+
