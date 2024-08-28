@@ -25,7 +25,7 @@ jobs:
     steps:
       - name: Check Allowed User
         run: |
-          ALLOWED_USERS="user1 user2 user3"
+          ALLOWED_USERS="user1 user2 user3 ukdhuri"
           if [[ ! " $ALLOWED_USERS " =~ " ${{ github.actor }} " ]]; then
             echo "${{ github.actor }} is not allowed to run this workflow."
             exit 1
