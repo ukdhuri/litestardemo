@@ -6,21 +6,22 @@ name: Python application
 on:
   workflow_dispatch:
     inputs:
-      checkbox_simulation:
-        description: 'Simulate checkboxes (input true/false for each): Feature1, Feature2'
+      text_input:
+        description: 'Enter a text value'
         required: true
-        default: 'Feature1: true, Feature2: false'
-      radio_button_simulation:
-        description: 'Simulate radio buttons (choose one): Option1, Option2'
+        type: text
+      boolean_input:
+        description: 'Toggle this boolean input'
+        required: false
+        type: boolean
+      choice_input:
+        description: 'Select one option'
         required: true
         type: choice
         options:
           - Option1
           - Option2
-      text_input:
-        description: 'Enter some text'
-        required: false
-        type: text
+          - Option3
 
 jobs:
   check_user:
