@@ -23,6 +23,20 @@ on:
         type: text
 
 jobs:
+  check_user:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check Allowed User
+        run: |
+          ALLOWED_USERS="user1 user2 user3"
+          if [[ ! " $ALLOWED_USERS " =~ " ${{ github.actor }} " ]]; then
+            echo "${{ github.actor }} is not allowed to run this workflow."
+            exit 1
+          fi
+      - name: Continue Workflow
+        run: |
+          echo "Workflow running by allowed user: ${{ github.actor }}"
+          
   show_inputs:
     runs-on: ubuntu-latest
     steps:
