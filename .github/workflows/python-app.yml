@@ -34,9 +34,8 @@ jobs:
         run: |
           echo "Workflow running by allowed user: ${{ github.actor }}"
           
-  show_inputs:
+  greet:
     runs-on: ubuntu-latest
     steps:
-      - name: Print Inputs
-        run: |
-          echo "${{ github.event.inputs.message }} ${{ fromJSON('["", "🥳"]')[github.event.inputs.use-emoji == 'true'] }} ${{ github.event.inputs.name }}" }}"
+    - name: Send greeting
+      run: echo "${{ github.event.inputs.message }} ${{ fromJSON('["", "🥳"]')[github.event.inputs.use-emoji == 'true'] }} ${{ github.event.inputs.name }}"
