@@ -4,24 +4,20 @@
 name: Python application
 
 on:
-  workflow_dispatch:
     inputs:
-      text_input:
-        description: 'Enter a text value'
-        required: true
-        type: text
-      boolean_input:
-        description: 'Toggle this boolean input'
-        required: false
-        type: boolean
-      choice_input:
-        description: 'Select one option'
-        required: true
+      name:
         type: choice
-        options:
-          - Option1
-          - Option2
-          - Option3
+        description: Who to greet
+        options: 
+        - monalisa
+        - cschleiden
+      message:
+        required: true
+      use-emoji:
+        type: boolean
+        description: Include 🎉🤣 emojis
+      environment:
+        type: environment
 
 jobs:
   check_user:
@@ -43,6 +39,4 @@ jobs:
     steps:
       - name: Print Inputs
         run: |
-          echo "Text Input: ${{ github.event.inputs.text_input }}"
-          echo "Boolean Input: ${{ github.event.inputs.boolean_input }}"
-          echo "Choice Selected: ${{ github.event.inputs.choice_input }}"
+          echo "${{ github.event.inputs.message }} ${{ fromJSON('["", "🥳"]')[github.event.inputs.use-emoji == 'true'] }} ${{ github.event.inputs.name }}" }}"
