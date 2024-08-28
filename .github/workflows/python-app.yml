@@ -43,6 +43,6 @@ jobs:
     steps:
       - name: Print Inputs
         run: |
-          echo "Checkbox values: ${{ github.event.inputs.checkbox_simulation }}"
-          echo "Radio Button selected: ${{ github.event.inputs.radio_button_simulation }}"
           echo "Text Input: ${{ github.event.inputs.text_input }}"
+          echo "Boolean Input: ${{ github.event.inputs.boolean_input }}"
+          echo "Choice Selected: ${{ github.event.inputs.choice_input }}"
